@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 6 — Character Uses Furniture.**
+**Current milestone: 7 — Add the Stuff Area.**
 
 ## Build & run
 
@@ -18,3 +18,19 @@ xcodebuild -scheme MergeHouse -destination 'platform=iOS Simulator,name=iPad Pro
 
 Set your signing team in Xcode (target → Signing & Capabilities) before running on a device.
 The bundle identifier is `com.grissom.MergeHouse` — change it if you'd rather use something else.
+
+## Checking the landscape lock
+
+Orientation is set two ways: `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad`
+plus `INFOPLIST_KEY_UIRequiresFullScreen` in the target's build settings, and
+`AppDelegate.application(_:supportedInterfaceOrientationsFor:)` at runtime.
+
+If the iPad build still rotates, check what actually landed in the built Info.plist:
+
+```sh
+plutil -p ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug-iphonesimulator/"Merge House.app"/Info.plist \
+  | grep -iE 'orientation|fullscreen' -A4
+```
+
+If `UIRequiresFullScreen` is missing or is the string `"YES"` rather than a
+boolean, set it from Xcode instead: target → General → "Requires full screen".

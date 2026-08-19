@@ -41,10 +41,57 @@ enum ItemCatalog {
                        mergesInto: nil,
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1)),
+
+        ItemDefinition(id: "bow",
+                       name: "Bow",
+                       imageName: "bow",
+                       mergesInto: "bow-fancy",
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.95, green: 0.62, blue: 0.76, alpha: 1)),
+        ItemDefinition(id: "bow-fancy",
+                       name: "Fancy Bow",
+                       imageName: "bow-fancy",
+                       mergesInto: "tiara",
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.85, green: 0.42, blue: 0.62, alpha: 1)),
+        ItemDefinition(id: "tiara",
+                       name: "Tiara",
+                       imageName: "tiara",
+                       mergesInto: nil,
+                       scale: 1.6,
+                       placeholderColor: SKColor(red: 0.95, green: 0.82, blue: 0.35, alpha: 1)),
+
+        ItemDefinition(id: "cupcake",
+                       name: "Cupcake",
+                       imageName: "cupcake",
+                       mergesInto: "cake",
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1)),
+        ItemDefinition(id: "cake",
+                       name: "Cake",
+                       imageName: "cake",
+                       mergesInto: "cake-giant",
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1)),
+        ItemDefinition(id: "cake-giant",
+                       name: "Giant Cake",
+                       imageName: "cake-giant",
+                       mergesInto: nil,
+                       scale: 1.6,
+                       placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1)),
     ]
 
-    /// What `Get Stuff` hands out: the first entry in the list.
-    static let starter = all[0]
+    /// The bottom of every chain: the items nothing else merges into. These are
+    /// what `Get Stuff` hands out, so a new chain becomes reachable simply by
+    /// being listed above.
+    static let starters: [ItemDefinition] = all.filter { candidate in
+        !all.contains { $0.mergesInto == candidate.id }
+    }
+
+    /// One random level-one item.
+    static func randomStarter() -> ItemDefinition {
+        starters.randomElement() ?? all[0]
+    }
 
     static func definition(id: String) -> ItemDefinition? {
         byID[id]

@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 13 — Data-Driven Item Definitions.**
+**Current milestone: 14 — Several Merge Chains.**
 
 ## Build & run
 

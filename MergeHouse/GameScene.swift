@@ -389,9 +389,8 @@ final class GameScene: SKScene {
     }
 
     private func spawnItem() {
-        let slot = items.filter { $0.location == .stuff }.count
-        let node = addItem(definition: ItemCatalog.starter, location: .stuff,
-                           anchor: spawnAnchor(forItemAt: slot))
+        let node = addItem(definition: ItemCatalog.randomStarter(), location: .stuff,
+                           anchor: nextSpawnAnchor())
         node.setScale(0.6)
         node.run(.scale(to: 1.0, duration: 0.12))
     }
@@ -608,29 +607,48 @@ final class GameScene: SKScene {
         return placeholder
     }
 
-    /// Deals items into a grid across the spawn area, wrapping back to the first
-    /// slot once it is full. Nothing stops items sharing a slot — they can simply
-    /// be dragged apart.
-    private func spawnAnchor(forItemAt index: Int) -> CGPoint {
+    /// Picks where a newly spawned item lands: the grid slot in the spawn area
+    /// that is furthest from everything already lying there, so items spread out
+    /// instead of piling up. If every slot is crowded it nudges the newcomer so
+    /// it is not hidden exactly behind an older one.
+    private func nextSpawnAnchor() -> CGPoint {
         let spacing = itemBaseSize.height * 0.25
         let columns = max(1, Int((stuffSpawnRect.width + spacing) / (itemBaseSize.width + spacing)))
         let rows = max(1, Int((stuffSpawnRect.height + spacing) / (itemBaseSize.height + spacing)))
-        let slots = columns * rows
-        let slot = index % slots
-        let column = slot % columns
-        let row = slot / columns
-        // Once the grid is full it starts again, nudged so the new item is not
-        // hidden exactly behind the old one.
-        let cascade = itemBaseSize.height * 0.18 * CGFloat((index / slots) % 3)
 
-        let x = stuffSpawnRect.minX + itemBaseSize.width / 2 + cascade +
-            CGFloat(column) * (itemBaseSize.width + spacing)
-        // Dealt from the top of the spawn area downwards.
-        let y = stuffSpawnRect.maxY - itemBaseSize.height / 2 - cascade -
-            CGFloat(row) * (itemBaseSize.height + spacing)
+        let taken = items.filter { $0.location == .stuff }
+            .compactMap { itemNodes[$0.id]?.position }
 
-        let slotPoint = clampedItemPosition(CGPoint(x: x, y: y), size: itemBaseSize, in: .stuff)
-        return itemAnchor(for: slotPoint, in: .stuff)
+        var bestPoint = stuffSpawnRect.origin
+        var bestClearance = -CGFloat.greatestFiniteMagnitude
+
+        for row in 0..<rows {
+            for column in 0..<columns {
+                let x = stuffSpawnRect.minX + itemBaseSize.width / 2 +
+                    CGFloat(column) * (itemBaseSize.width + spacing)
+                // Dealt from the top of the spawn area downwards.
+                let y = stuffSpawnRect.maxY - itemBaseSize.height / 2 -
+                    CGFloat(row) * (itemBaseSize.height + spacing)
+                let point = clampedItemPosition(CGPoint(x: x, y: y),
+                                                size: itemBaseSize, in: .stuff)
+
+                let clearance = taken.map { hypot($0.x - point.x, $0.y - point.y) }.min()
+                    ?? CGFloat.greatestFiniteMagnitude
+                if clearance > bestClearance {
+                    bestClearance = clearance
+                    bestPoint = point
+                }
+            }
+        }
+
+        if bestClearance < itemBaseSize.height {
+            let nudge = itemBaseSize.height * 0.35
+            bestPoint = clampedItemPosition(CGPoint(x: bestPoint.x + .random(in: -nudge...nudge),
+                                                    y: bestPoint.y + .random(in: -nudge...nudge)),
+                                            size: itemBaseSize, in: .stuff)
+        }
+
+        return anchor(for: bestPoint, in: .stuff)
     }
 
     private func rect(for location: ItemLocation) -> CGRect {

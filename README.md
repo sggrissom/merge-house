@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 1 — Main Menu.**
+**Current milestone: 2 — Empty Room.**
 
 ## Build & run
 

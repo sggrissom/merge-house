@@ -8,21 +8,23 @@
 
 /* Begin PBXBuildFile section */
 		1A0000000000000000000020 /* MergeHouseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* MergeHouseApp.swift */; };
+		1A0000000000000000000022 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000012 /* Assets.xcassets */; };
 		1A0000000000000000000023 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000013 /* MainMenuView.swift */; };
 		1A0000000000000000000024 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000014 /* GameView.swift */; };
 		1A0000000000000000000025 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000015 /* GameScene.swift */; };
 		1A0000000000000000000026 /* ItemCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000016 /* ItemCatalog.swift */; };
-		1A0000000000000000000022 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000012 /* Assets.xcassets */; };
+		33F5CFE330365ECC000C3EDD /* Basic_human_drawing.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1A0000000000000000000003 /* Merge House.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Merge House.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000000000000000000010 /* MergeHouseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeHouseApp.swift; sourceTree = "<group>"; };
+		1A0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A0000000000000000000013 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000014 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000015 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		1A0000000000000000000016 /* ItemCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCatalog.swift; sourceTree = "<group>"; };
-		1A0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Basic_human_drawing.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +63,7 @@
 				1A0000000000000000000015 /* GameScene.swift */,
 				1A0000000000000000000016 /* ItemCatalog.swift */,
 				1A0000000000000000000012 /* Assets.xcassets */,
+				33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */,
 			);
 			path = MergeHouse;
 			sourceTree = "<group>";
@@ -124,6 +127,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A0000000000000000000022 /* Assets.xcassets in Resources */,
+				33F5CFE330365ECC000C3EDD /* Basic_human_drawing.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

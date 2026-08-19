@@ -1,7 +1,7 @@
 import SpriteKit
 
 /// The whole play area: the bedroom on top, the Stuff area below.
-/// Drawn entirely from shapes and labels — no art assets yet.
+/// Drawn from shapes and labels, with artwork swapped in wherever it exists.
 final class GameScene: SKScene {
 
     // MARK: - Furniture model
@@ -63,6 +63,8 @@ final class GameScene: SKScene {
 
     private var getStuffButton: SKNode?
     private var getStuffButtonRect: CGRect = .zero
+    private var clearStuffButton: SKNode?
+    private var clearStuffButtonRect: CGRect = .zero
 
     /// Every item that exists, back to front: the last one draws on top and is
     /// the first to be picked up.
@@ -313,16 +315,29 @@ final class GameScene: SKScene {
         title.zPosition = 1
         stuffNode.addChild(title)
 
+        // Two buttons stacked in a column down the right-hand edge.
         let buttonWidth = min(stuffRect.width * 0.32, stuffRect.height * 2.2)
-        let buttonHeight = stuffRect.height * 0.42
-        getStuffButtonRect = CGRect(x: stuffRect.maxX - inset - buttonWidth,
-                                    y: stuffRect.midY - buttonHeight / 2,
-                                    width: buttonWidth,
-                                    height: buttonHeight)
-        let button = makeGetStuffButton(rect: getStuffButtonRect)
-        button.zPosition = 2
-        stuffNode.addChild(button)
-        getStuffButton = button
+        let buttonHeight = stuffRect.height * 0.32
+        let buttonGap = stuffRect.height * 0.08
+        let buttonX = stuffRect.maxX - inset - buttonWidth
+        let columnTop = stuffRect.midY + (buttonHeight * 2 + buttonGap) / 2
+
+        getStuffButtonRect = CGRect(x: buttonX, y: columnTop - buttonHeight,
+                                    width: buttonWidth, height: buttonHeight)
+        clearStuffButtonRect = CGRect(x: buttonX, y: columnTop - buttonHeight * 2 - buttonGap,
+                                      width: buttonWidth, height: buttonHeight)
+
+        let getButton = makeStuffButton(rect: getStuffButtonRect, title: "Get Stuff",
+                                        color: SKColor(red: 0.35, green: 0.55, blue: 0.92, alpha: 1))
+        getButton.zPosition = 2
+        stuffNode.addChild(getButton)
+        getStuffButton = getButton
+
+        let clearButton = makeStuffButton(rect: clearStuffButtonRect, title: "Clear All",
+                                          color: SKColor(red: 0.72, green: 0.32, blue: 0.34, alpha: 1))
+        clearButton.zPosition = 2
+        stuffNode.addChild(clearButton)
+        clearStuffButton = clearButton
 
         // Items are dealt into the space left of the button and below the title.
         let itemHeight = stuffRect.height * 0.30
@@ -330,26 +345,35 @@ final class GameScene: SKScene {
         stuffSpawnRect = CGRect(x: stuffRect.minX + inset,
                                 y: stuffRect.minY + inset,
                                 width: max(itemBaseSize.width,
-                                           getStuffButtonRect.minX - inset * 2 - stuffRect.minX),
+                                           buttonColumnMinX - inset * 2 - stuffRect.minX),
                                 height: max(itemBaseSize.height,
                                             stuffRect.height - inset * 2 - titleFontSize))
     }
 
+    /// The left edge of the button column, which items keep clear of.
+    private var buttonColumnMinX: CGFloat {
+        var edge = stuffRect.maxX
+        for rect in [getStuffButtonRect, clearStuffButtonRect] where !rect.isEmpty {
+            edge = min(edge, rect.minX)
+        }
+        return edge
+    }
+
     /// Built around its own centre so it can scale when pressed.
-    private func makeGetStuffButton(rect: CGRect) -> SKNode {
+    private func makeStuffButton(rect: CGRect, title: String, color: SKColor) -> SKNode {
         let node = SKNode()
         node.position = CGPoint(x: rect.midX, y: rect.midY)
 
         let background = SKShapeNode(rect: CGRect(x: -rect.width / 2, y: -rect.height / 2,
                                                   width: rect.width, height: rect.height),
                                      cornerRadius: rect.height * 0.35)
-        background.fillColor = SKColor(red: 0.35, green: 0.55, blue: 0.92, alpha: 1)
+        background.fillColor = color
         background.strokeColor = SKColor(white: 0.9, alpha: 0.8)
         background.lineWidth = 2
         node.addChild(background)
 
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = "Get Stuff"
+        label.text = title
         label.fontSize = max(13, rect.height * 0.42)
         label.fontColor = .white
         label.verticalAlignmentMode = .center
@@ -359,15 +383,40 @@ final class GameScene: SKScene {
         return node
     }
 
+    private func pressButton(_ button: SKNode?) {
+        guard let button = button else { return }
+        button.removeAllActions()
+        button.setScale(1)
+        button.run(.sequence([.scale(to: 0.92, duration: 0.06),
+                              .scale(to: 1.0, duration: 0.09)]))
+    }
+
     /// Each tap drops one more placeholder item into the Stuff area.
     private func getStuffTapped() {
-        if let button = getStuffButton {
-            button.removeAllActions()
-            button.setScale(1)
-            button.run(.sequence([.scale(to: 0.92, duration: 0.06),
-                                  .scale(to: 1.0, duration: 0.09)]))
-        }
+        pressButton(getStuffButton)
         spawnItem()
+    }
+
+    /// Wipes every loose item, in the Stuff area and in the room alike.
+    /// Any drag in progress is dropped with it, since its item is gone.
+    private func clearStuffTapped() {
+        pressButton(clearStuffButton)
+        guard !items.isEmpty else { return }
+
+        if case .item = dragSubject {
+            dragTouch = nil
+            dragSubject = nil
+        }
+        highlightMergeTarget(nil)
+
+        for item in items {
+            guard let node = itemNodes[item.id] else { continue }
+            node.run(.sequence([.group([.scale(to: 0.4, duration: 0.12),
+                                        .fadeOut(withDuration: 0.12)]),
+                                .removeFromParent()]))
+        }
+        items.removeAll()
+        itemNodes.removeAll()
     }
 
     // MARK: - Items
@@ -545,7 +594,7 @@ final class GameScene: SKScene {
 
         let resting = clampedItemPosition(meetingPoint, size: itemSize(for: result), in: .stuff)
         let node = addItem(definition: result, location: .stuff,
-                           anchor: anchor(for: resting, in: .stuff))
+                           anchor: itemAnchor(for: resting, in: .stuff))
         node.setScale(0.5)
         node.run(.sequence([.scale(to: 1.15, duration: 0.10),
                             .scale(to: 1.0, duration: 0.08)]))
@@ -648,7 +697,7 @@ final class GameScene: SKScene {
                                             size: itemBaseSize, in: .stuff)
         }
 
-        return anchor(for: bestPoint, in: .stuff)
+        return itemAnchor(for: bestPoint, in: .stuff)
     }
 
     private func rect(for location: ItemLocation) -> CGRect {
@@ -679,8 +728,8 @@ final class GameScene: SKScene {
     }
 
     /// Keeps a whole item inside its area. In the Stuff panel it also stays clear
-    /// of the Get Stuff button — an item parked on the button could not be picked
-    /// up again, because the tap would spawn a new one instead.
+    /// of the button column — an item parked on a button could not be picked up
+    /// again, because the tap would hit the button instead.
     private func clampedItemPosition(_ position: CGPoint, size boxSize: CGSize,
                                      in location: ItemLocation) -> CGPoint {
         let area = rect(for: location)
@@ -688,8 +737,8 @@ final class GameScene: SKScene {
         // taller than the Stuff panel and would otherwise fence items off its walls.
         let margin = itemBaseSize.height * 0.2
         var rightEdge = area.maxX
-        if location == .stuff, !getStuffButtonRect.isEmpty {
-            rightEdge = getStuffButtonRect.minX
+        if location == .stuff {
+            rightEdge = buttonColumnMinX
         }
 
         let minX = area.minX + margin + boxSize.width / 2
@@ -710,35 +759,21 @@ final class GameScene: SKScene {
 
     // MARK: - Character
 
-    /// Builds the placeholder character, sized relative to the room.
+    private static let characterImageName = "Basic_human_drawing"
+
+    /// Builds the character, sized relative to the room.
     /// The container's position is the character's feet.
     private func layoutCharacter() {
         characterNode.removeAllChildren()
 
         let height = roomRect.height * 0.30
-        let bodyWidth = height * 0.42
-        let headRadius = height * 0.16
-        let bodyHeight = height - headRadius * 2
-        let outlineColor = SKColor(white: 0.2, alpha: 0.6)
 
         // Build at the origin, unrotated, so the accumulated frame comes out
         // in local coordinates.
         characterNode.position = .zero
         characterNode.zRotation = 0
 
-        let bodyRect = CGRect(x: -bodyWidth / 2, y: 0, width: bodyWidth, height: bodyHeight)
-        let body = SKShapeNode(rect: bodyRect, cornerRadius: bodyWidth * 0.35)
-        body.fillColor = SKColor(red: 0.90, green: 0.36, blue: 0.55, alpha: 1)
-        body.strokeColor = outlineColor
-        body.lineWidth = 2
-        characterNode.addChild(body)
-
-        let head = SKShapeNode(circleOfRadius: headRadius)
-        head.position = CGPoint(x: 0, y: bodyHeight + headRadius * 0.85)
-        head.fillColor = SKColor(red: 0.98, green: 0.84, blue: 0.72, alpha: 1)
-        head.strokeColor = outlineColor
-        head.lineWidth = 2
-        characterNode.addChild(head)
+        characterNode.addChild(makeCharacterArtwork(height: height))
 
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
         label.text = characterUsing?.characterLabel ?? "Girl"
@@ -746,7 +781,7 @@ final class GameScene: SKScene {
         label.fontColor = SKColor(white: 0.15, alpha: 1)
         label.verticalAlignmentMode = .bottom
         label.horizontalAlignmentMode = .center
-        label.position = CGPoint(x: 0, y: bodyHeight + headRadius * 1.85 + height * 0.04)
+        label.position = CGPoint(x: 0, y: height + height * 0.06)
         characterNode.addChild(label)
 
         characterLocalFrame = characterNode.calculateAccumulatedFrame()
@@ -757,6 +792,40 @@ final class GameScene: SKScene {
         } else {
             characterNode.position = clampedCharacterPosition(scenePosition(for: characterAnchor))
         }
+    }
+
+    /// The character's drawing, standing on the origin. Falls back to a shape
+    /// placeholder if the artwork is missing, the same way items do.
+    private func makeCharacterArtwork(height: CGFloat) -> SKNode {
+        if let image = UIImage(named: Self.characterImageName) {
+            let sprite = SKSpriteNode(texture: SKTexture(image: image))
+            let scale = height / sprite.size.height
+            sprite.size = CGSize(width: sprite.size.width * scale, height: height)
+            sprite.anchorPoint = CGPoint(x: 0.5, y: 0)
+            return sprite
+        }
+
+        let placeholder = SKNode()
+        let bodyWidth = height * 0.42
+        let headRadius = height * 0.16
+        let bodyHeight = height - headRadius * 2
+        let outlineColor = SKColor(white: 0.2, alpha: 0.6)
+
+        let bodyRect = CGRect(x: -bodyWidth / 2, y: 0, width: bodyWidth, height: bodyHeight)
+        let body = SKShapeNode(rect: bodyRect, cornerRadius: bodyWidth * 0.35)
+        body.fillColor = SKColor(red: 0.90, green: 0.36, blue: 0.55, alpha: 1)
+        body.strokeColor = outlineColor
+        body.lineWidth = 2
+        placeholder.addChild(body)
+
+        let head = SKShapeNode(circleOfRadius: headRadius)
+        head.position = CGPoint(x: 0, y: bodyHeight + headRadius * 0.85)
+        head.fillColor = SKColor(red: 0.98, green: 0.84, blue: 0.72, alpha: 1)
+        head.strokeColor = outlineColor
+        head.lineWidth = 2
+        placeholder.addChild(head)
+
+        return placeholder
     }
 
     // MARK: - Character placement
@@ -790,6 +859,11 @@ final class GameScene: SKScene {
 
         if getStuffButtonRect.contains(location) {
             getStuffTapped()
+            return
+        }
+
+        if clearStuffButtonRect.contains(location) {
+            clearStuffTapped()
             return
         }
 

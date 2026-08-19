@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 9 — Drag Items.**
+**Current milestone: 10 — First Merge.**
 
 ## Build & run
 

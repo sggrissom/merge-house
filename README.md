@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 2 — Empty Room.**
+**Current milestone: 3 — Character Appears.**
 
 ## Build & run
 

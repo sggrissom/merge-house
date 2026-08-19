@@ -376,19 +376,23 @@ final class GameScene: SKScene {
     private enum StuffItemKind {
         case littleTeddy
         case bigTeddy
+        case giantTeddy
 
         var name: String {
             switch self {
             case .littleTeddy: return "Little Teddy"
             case .bigTeddy: return "Big Teddy"
+            case .giantTeddy: return "Giant Teddy"
             }
         }
 
-        /// What a pair of these becomes. `nil` means they do not merge.
+        /// What a pair of these becomes. `nil` means they do not merge — the top
+        /// of the chain simply stays as it is.
         var mergeResult: StuffItemKind? {
             switch self {
             case .littleTeddy: return .bigTeddy
-            case .bigTeddy: return nil
+            case .bigTeddy: return .giantTeddy
+            case .giantTeddy: return nil
             }
         }
 
@@ -397,6 +401,7 @@ final class GameScene: SKScene {
             switch self {
             case .littleTeddy: return 1.0
             case .bigTeddy: return 1.28
+            case .giantTeddy: return 1.6
             }
         }
 
@@ -404,6 +409,7 @@ final class GameScene: SKScene {
             switch self {
             case .littleTeddy: return SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1)
             case .bigTeddy: return SKColor(red: 0.76, green: 0.48, blue: 0.26, alpha: 1)
+            case .giantTeddy: return SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1)
             }
         }
     }

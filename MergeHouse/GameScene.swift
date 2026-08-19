@@ -50,8 +50,9 @@ final class GameScene: SKScene {
     private let characterNode = SKNode()
     /// The Stuff area panel and its button. Rebuilt whenever the scene resizes.
     private let stuffNode = SKNode()
-    /// The loose items sitting in the Stuff area, drawn on top of its panel.
-    private let stuffItemsNode = SKNode()
+    /// The loose items, in the Stuff area or placed in the room. They draw above
+    /// the Stuff panel, so this layer sits on top of everything else.
+    private let itemsNode = SKNode()
 
     /// The playable area of the room in scene coordinates.
     private var roomRect: CGRect = .zero
@@ -63,16 +64,16 @@ final class GameScene: SKScene {
     private var getStuffButton: SKNode?
     private var getStuffButtonRect: CGRect = .zero
 
-    /// The items currently in the Stuff area, back to front: the last one draws
-    /// on top and is the first to be picked up.
-    private var stuffItems: [StuffItem] = []
+    /// Every item that exists, back to front: the last one draws on top and is
+    /// the first to be picked up.
+    private var items: [Item] = []
     /// The node showing each item, keyed by item id.
-    private var stuffItemNodes: [Int: SKNode] = [:]
-    private var nextStuffItemID = 0
+    private var itemNodes: [Int: SKNode] = [:]
+    private var nextItemID = 0
     /// The part of the Stuff area new items are dealt into: clear of the title and button.
     private var stuffSpawnRect: CGRect = .zero
     /// Placeholder size for one item, scaled to the current Stuff area.
-    private var stuffItemSize: CGSize = .zero
+    private var itemBaseSize: CGSize = .zero
 
     /// Where the character stands, as a fraction of `roomRect`, so a resize or
     /// rotation keeps it in the same relative spot instead of resetting it.
@@ -86,7 +87,7 @@ final class GameScene: SKScene {
     /// What the current drag is moving.
     private enum DragSubject {
         case character
-        case stuffItem(id: Int)
+        case item(id: Int)
     }
 
     private var dragTouch: UITouch?
@@ -104,12 +105,12 @@ final class GameScene: SKScene {
         addChild(furnitureNode)
         addChild(characterNode)
         addChild(stuffNode)
-        addChild(stuffItemsNode)
+        addChild(itemsNode)
         // Room chrome draws in 0...3, then furniture, then the character on top.
         furnitureNode.zPosition = 5
         characterNode.zPosition = 10
         stuffNode.zPosition = 20
-        stuffItemsNode.zPosition = 25
+        itemsNode.zPosition = 25
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -152,7 +153,7 @@ final class GameScene: SKScene {
         layoutFurniture()
         layoutCharacter()
         layoutStuff()
-        layoutStuffItems()
+        layoutItems()
     }
 
     // MARK: - Room
@@ -325,12 +326,12 @@ final class GameScene: SKScene {
 
         // Items are dealt into the space left of the button and below the title.
         let itemHeight = stuffRect.height * 0.30
-        stuffItemSize = CGSize(width: itemHeight * 2.1, height: itemHeight)
+        itemBaseSize = CGSize(width: itemHeight * 2.1, height: itemHeight)
         stuffSpawnRect = CGRect(x: stuffRect.minX + inset,
                                 y: stuffRect.minY + inset,
-                                width: max(stuffItemSize.width,
+                                width: max(itemBaseSize.width,
                                            getStuffButtonRect.minX - inset * 2 - stuffRect.minX),
-                                height: max(stuffItemSize.height,
+                                height: max(itemBaseSize.height,
                                             stuffRect.height - inset * 2 - titleFontSize))
     }
 
@@ -366,14 +367,14 @@ final class GameScene: SKScene {
             button.run(.sequence([.scale(to: 0.92, duration: 0.06),
                                   .scale(to: 1.0, duration: 0.09)]))
         }
-        spawnStuffItem()
+        spawnItem()
     }
 
-    // MARK: - Stuff items
+    // MARK: - Items
 
     /// The kinds of loose object that exist so far. Two of the same kind merge
     /// into whatever `mergeResult` names.
-    private enum StuffItemKind {
+    private enum ItemKind {
         case littleTeddy
         case bigTeddy
         case giantTeddy
@@ -388,7 +389,7 @@ final class GameScene: SKScene {
 
         /// What a pair of these becomes. `nil` means they do not merge — the top
         /// of the chain simply stays as it is.
-        var mergeResult: StuffItemKind? {
+        var mergeResult: ItemKind? {
             switch self {
             case .littleTeddy: return .bigTeddy
             case .bigTeddy: return .giantTeddy
@@ -414,80 +415,89 @@ final class GameScene: SKScene {
         }
     }
 
-    /// One loose object in the Stuff area. Its position is stored as a fraction of
-    /// `stuffRect` so a resize or rotation keeps it in the same relative spot.
-    private struct StuffItem {
+    /// Where an item currently lives. Items start in the Stuff area and can be
+    /// carried into the Bedroom, where they become part of the dollhouse.
+    private enum ItemLocation {
+        case stuff
+        case room
+    }
+
+    /// One loose object. Its position is stored as a fraction of whichever area
+    /// it is in, so a resize or rotation keeps it in the same relative spot.
+    private struct Item {
         let id: Int
-        let kind: StuffItemKind
+        let kind: ItemKind
+        var location: ItemLocation
         var anchor: CGPoint
     }
 
-    private func spawnStuffItem() {
-        let anchor = spawnAnchor(forItemAt: stuffItems.count)
-        let node = addStuffItem(kind: .littleTeddy, anchor: anchor)
+    private func spawnItem() {
+        let slot = items.filter { $0.location == .stuff }.count
+        let node = addItem(kind: .littleTeddy, location: .stuff,
+                           anchor: spawnAnchor(forItemAt: slot))
         node.setScale(0.6)
         node.run(.scale(to: 1.0, duration: 0.12))
     }
 
     /// Adds one item to the model and the scene, on top of everything else.
     @discardableResult
-    private func addStuffItem(kind: StuffItemKind, anchor: CGPoint) -> SKNode {
-        let item = StuffItem(id: nextStuffItemID, kind: kind, anchor: anchor)
-        nextStuffItemID += 1
-        stuffItems.append(item)
-        let node = addStuffItemNode(for: item)
-        refreshStuffItemDepths()
+    private func addItem(kind: ItemKind, location: ItemLocation, anchor: CGPoint) -> SKNode {
+        let item = Item(id: nextItemID, kind: kind, location: location, anchor: anchor)
+        nextItemID += 1
+        items.append(item)
+        let node = addItemNode(for: item)
+        refreshItemDepths()
         return node
     }
 
-    private func removeStuffItem(id: Int) {
-        stuffItemNodes[id]?.removeFromParent()
-        stuffItemNodes[id] = nil
-        if let index = stuffItemIndex(id: id) {
-            stuffItems.remove(at: index)
+    private func removeItem(id: Int) {
+        itemNodes[id]?.removeFromParent()
+        itemNodes[id] = nil
+        if let index = itemIndex(id: id) {
+            items.remove(at: index)
         }
     }
 
-    private func itemSize(for kind: StuffItemKind) -> CGSize {
-        CGSize(width: stuffItemSize.width * kind.scale,
-               height: stuffItemSize.height * kind.scale)
+    private func itemSize(for kind: ItemKind) -> CGSize {
+        CGSize(width: itemBaseSize.width * kind.scale,
+               height: itemBaseSize.height * kind.scale)
     }
 
-    private func layoutStuffItems() {
-        stuffItemsNode.removeAllChildren()
-        stuffItemNodes = [:]
-        for item in stuffItems {
-            addStuffItemNode(for: item)
+    private func layoutItems() {
+        itemsNode.removeAllChildren()
+        itemNodes = [:]
+        for item in items {
+            addItemNode(for: item)
         }
-        refreshStuffItemDepths()
+        refreshItemDepths()
     }
 
     @discardableResult
-    private func addStuffItemNode(for item: StuffItem) -> SKNode {
-        let node = makeStuffItemNode(for: item)
-        stuffItemNodes[item.id] = node
-        stuffItemsNode.addChild(node)
+    private func addItemNode(for item: Item) -> SKNode {
+        let node = makeItemNode(for: item)
+        itemNodes[item.id] = node
+        itemsNode.addChild(node)
         return node
     }
 
-    /// Draw order follows `stuffItems`, so moving an item to the end of the
+    /// Draw order follows `items`, so moving an item to the end of the
     /// array is what brings it to the front.
-    private func refreshStuffItemDepths() {
-        for (index, item) in stuffItems.enumerated() {
-            stuffItemNodes[item.id]?.zPosition = CGFloat(index)
+    private func refreshItemDepths() {
+        for (index, item) in items.enumerated() {
+            itemNodes[item.id]?.zPosition = CGFloat(index)
         }
     }
 
-    private func stuffItemIndex(id: Int) -> Int? {
-        stuffItems.firstIndex { $0.id == id }
+    private func itemIndex(id: Int) -> Int? {
+        items.firstIndex { $0.id == id }
     }
 
     /// The topmost item under a touch, if any. A little slop around the box
     /// makes small items easier to grab with a finger.
-    private func topStuffItem(at location: CGPoint) -> StuffItem? {
-        let slop = stuffItemSize.height * 0.12
-        for item in stuffItems.reversed() {
-            guard let node = stuffItemNodes[item.id] else { continue }
+    private func topItem(at location: CGPoint) -> Item? {
+        let slop = itemBaseSize.height * 0.12
+        for item in items.reversed() {
+            guard let node = itemNodes[item.id] else { continue }
             if node.calculateAccumulatedFrame().insetBy(dx: -slop, dy: -slop).contains(location) {
                 return item
             }
@@ -497,24 +507,27 @@ final class GameScene: SKScene {
 
     // MARK: - Merging
 
-    private static let stuffItemBoxName = "box"
-    private static let stuffItemStroke = SKColor(white: 0.15, alpha: 0.7)
-    private static let stuffItemMergeStroke = SKColor(red: 1.0, green: 0.95, blue: 0.4, alpha: 1)
+    private static let itemBoxName = "box"
+    private static let itemStroke = SKColor(white: 0.15, alpha: 0.7)
+    private static let itemMergeStroke = SKColor(red: 1.0, green: 0.95, blue: 0.4, alpha: 1)
 
     /// The item `dragged` would merge with if it were released now, if any.
     ///
     /// Like the furniture test, this compares overlapping *area* rather than a
     /// single point, so a teddy dropped anywhere across its partner counts.
-    private func mergeTarget(for dragged: StuffItem) -> StuffItem? {
-        guard dragged.kind.mergeResult != nil,
-              let draggedFrame = stuffItemNodes[dragged.id]?.calculateAccumulatedFrame() else {
+    private func mergeTarget(for dragged: Item) -> Item? {
+        // Merging happens in the Stuff area. Things placed in the room are being
+        // played with, and should not disappear into a merge when pushed together.
+        guard dragged.location == .stuff, dragged.kind.mergeResult != nil,
+              let draggedFrame = itemNodes[dragged.id]?.calculateAccumulatedFrame() else {
             return nil
         }
         let draggedArea = draggedFrame.width * draggedFrame.height
-        var best: (item: StuffItem, overlap: CGFloat)?
+        var best: (item: Item, overlap: CGFloat)?
 
-        for other in stuffItems where other.id != dragged.id && other.kind == dragged.kind {
-            guard let otherFrame = stuffItemNodes[other.id]?.calculateAccumulatedFrame() else { continue }
+        for other in items where other.id != dragged.id &&
+            other.kind == dragged.kind && other.location == .stuff {
+            guard let otherFrame = itemNodes[other.id]?.calculateAccumulatedFrame() else { continue }
             let intersection = draggedFrame.intersection(otherFrame)
             guard !intersection.isNull else { continue }
 
@@ -532,41 +545,50 @@ final class GameScene: SKScene {
 
     /// Outlines the item the dragged one would merge with.
     private func highlightMergeTarget(_ id: Int?) {
-        for item in stuffItems {
-            guard let box = stuffItemNodes[item.id]?
-                .childNode(withName: Self.stuffItemBoxName) as? SKShapeNode else { continue }
+        for item in items {
+            guard let box = itemNodes[item.id]?
+                .childNode(withName: Self.itemBoxName) as? SKShapeNode else { continue }
             let isTarget = item.id == id
-            box.strokeColor = isTarget ? Self.stuffItemMergeStroke : Self.stuffItemStroke
+            box.strokeColor = isTarget ? Self.itemMergeStroke : Self.itemStroke
             box.lineWidth = isTarget ? 5 : 2
         }
     }
 
     /// On release, merge the dragged item into whatever it was dropped on.
     /// Otherwise it simply stays where it was put.
-    private func settleStuffItem(id: Int) {
+    private func settleItem(id: Int) {
         highlightMergeTarget(nil)
-        guard let index = stuffItemIndex(id: id), let node = stuffItemNodes[id] else { return }
-        let dragged = stuffItems[index]
+        guard let index = itemIndex(id: id), let node = itemNodes[id] else { return }
         node.removeAllActions()
 
-        guard let target = mergeTarget(for: dragged), let result = dragged.kind.mergeResult else {
+        // Whichever area it was let go over is the one it now belongs to.
+        let dropLocation = location(forDropAt: node.position)
+        let resting = clampedItemPosition(node.position,
+                                          size: itemSize(for: items[index].kind),
+                                          in: dropLocation)
+        items[index].location = dropLocation
+        items[index].anchor = anchor(for: resting, in: dropLocation)
+        node.position = resting
+
+        let dropped = items[index]
+        guard let target = mergeTarget(for: dropped), let result = dropped.kind.mergeResult else {
             node.run(.scale(to: 1.0, duration: 0.08))
             return
         }
 
-        merge(dragged, target, into: result)
+        merge(dropped, target, into: result)
     }
 
     /// Both source items disappear and the next kind up appears where the pair met.
-    private func merge(_ dragged: StuffItem, _ target: StuffItem, into kind: StuffItemKind) {
-        let meetingPoint = stuffItemNodes[target.id]?.position ??
-            stuffPosition(for: target.anchor)
+    private func merge(_ dragged: Item, _ target: Item, into kind: ItemKind) {
+        let meetingPoint = itemNodes[target.id]?.position ?? itemPosition(for: target)
 
-        removeStuffItem(id: dragged.id)
-        removeStuffItem(id: target.id)
+        removeItem(id: dragged.id)
+        removeItem(id: target.id)
 
-        let anchor = anchorInStuff(for: clampedStuffItemPosition(meetingPoint, size: itemSize(for: kind)))
-        let node = addStuffItem(kind: kind, anchor: anchor)
+        let resting = clampedItemPosition(meetingPoint, size: itemSize(for: kind), in: .stuff)
+        let node = addItem(kind: kind, location: .stuff,
+                           anchor: anchor(for: resting, in: .stuff))
         node.setScale(0.5)
         node.run(.sequence([.scale(to: 1.15, duration: 0.10),
                             .scale(to: 1.0, duration: 0.08)]))
@@ -574,17 +596,17 @@ final class GameScene: SKScene {
 
     /// A labeled placeholder box built around its own centre, so it can be
     /// positioned and scaled by its middle. Real artwork can replace the shape later.
-    private func makeStuffItemNode(for item: StuffItem) -> SKNode {
+    private func makeItemNode(for item: Item) -> SKNode {
         let boxSize = itemSize(for: item.kind)
         let node = SKNode()
-        node.position = clampedStuffItemPosition(stuffPosition(for: item.anchor), size: boxSize)
+        node.position = itemPosition(for: item)
 
         let box = SKShapeNode(rect: CGRect(x: -boxSize.width / 2, y: -boxSize.height / 2,
                                            width: boxSize.width, height: boxSize.height),
                               cornerRadius: boxSize.height * 0.22)
-        box.name = Self.stuffItemBoxName
+        box.name = Self.itemBoxName
         box.fillColor = item.kind.color
-        box.strokeColor = Self.stuffItemStroke
+        box.strokeColor = Self.itemStroke
         box.lineWidth = 2
         node.addChild(box)
 
@@ -600,53 +622,85 @@ final class GameScene: SKScene {
     }
 
     /// Deals items into a grid across the spawn area, wrapping back to the first
-    /// slot once it is full. Nothing stops items sharing a slot yet — they can be
-    /// moved apart once items become draggable.
+    /// slot once it is full. Nothing stops items sharing a slot — they can simply
+    /// be dragged apart.
     private func spawnAnchor(forItemAt index: Int) -> CGPoint {
-        let spacing = stuffItemSize.height * 0.25
-        let columns = max(1, Int((stuffSpawnRect.width + spacing) / (stuffItemSize.width + spacing)))
-        let rows = max(1, Int((stuffSpawnRect.height + spacing) / (stuffItemSize.height + spacing)))
+        let spacing = itemBaseSize.height * 0.25
+        let columns = max(1, Int((stuffSpawnRect.width + spacing) / (itemBaseSize.width + spacing)))
+        let rows = max(1, Int((stuffSpawnRect.height + spacing) / (itemBaseSize.height + spacing)))
         let slots = columns * rows
         let slot = index % slots
         let column = slot % columns
         let row = slot / columns
         // Once the grid is full it starts again, nudged so the new item is not
         // hidden exactly behind the old one.
-        let cascade = stuffItemSize.height * 0.18 * CGFloat((index / slots) % 3)
+        let cascade = itemBaseSize.height * 0.18 * CGFloat((index / slots) % 3)
 
-        let x = stuffSpawnRect.minX + stuffItemSize.width / 2 + cascade +
-            CGFloat(column) * (stuffItemSize.width + spacing)
+        let x = stuffSpawnRect.minX + itemBaseSize.width / 2 + cascade +
+            CGFloat(column) * (itemBaseSize.width + spacing)
         // Dealt from the top of the spawn area downwards.
-        let y = stuffSpawnRect.maxY - stuffItemSize.height / 2 - cascade -
-            CGFloat(row) * (stuffItemSize.height + spacing)
+        let y = stuffSpawnRect.maxY - itemBaseSize.height / 2 - cascade -
+            CGFloat(row) * (itemBaseSize.height + spacing)
 
-        return anchorInStuff(for: clampedStuffItemPosition(CGPoint(x: x, y: y),
-                                                           size: stuffItemSize))
+        let slotPoint = clampedItemPosition(CGPoint(x: x, y: y), size: itemBaseSize, in: .stuff)
+        return anchor(for: slotPoint, in: .stuff)
     }
 
-    private func stuffPosition(for anchor: CGPoint) -> CGPoint {
-        CGPoint(x: stuffRect.minX + anchor.x * stuffRect.width,
-                y: stuffRect.minY + anchor.y * stuffRect.height)
+    private func rect(for location: ItemLocation) -> CGRect {
+        switch location {
+        case .stuff: return stuffRect
+        case .room: return roomRect
+        }
     }
 
-    private func anchorInStuff(for position: CGPoint) -> CGPoint {
-        guard stuffRect.width > 0, stuffRect.height > 0 else { return CGPoint(x: 0.5, y: 0.5) }
-        return CGPoint(x: (position.x - stuffRect.minX) / stuffRect.width,
-                       y: (position.y - stuffRect.minY) / stuffRect.height)
+    private func itemPosition(for item: Item) -> CGPoint {
+        let area = rect(for: item.location)
+        let position = CGPoint(x: area.minX + item.anchor.x * area.width,
+                               y: area.minY + item.anchor.y * area.height)
+        return clampedItemPosition(position, size: itemSize(for: item.kind), in: item.location)
     }
 
-    /// Keeps a whole item inside the Stuff panel, whatever the current size, and
-    /// clear of the Get Stuff button — an item parked on the button could not be
-    /// picked up again, because the tap would spawn a new one instead.
-    private func clampedStuffItemPosition(_ position: CGPoint, size boxSize: CGSize) -> CGPoint {
-        let margin = stuffRect.height * 0.06
-        let rightEdge = getStuffButtonRect.isEmpty ? stuffRect.maxX : getStuffButtonRect.minX
-        let minX = stuffRect.minX + margin + boxSize.width / 2
+    private func anchor(for position: CGPoint, in location: ItemLocation) -> CGPoint {
+        let area = rect(for: location)
+        guard area.width > 0, area.height > 0 else { return CGPoint(x: 0.5, y: 0.5) }
+        return CGPoint(x: (position.x - area.minX) / area.width,
+                       y: (position.y - area.minY) / area.height)
+    }
+
+    /// Which area an item dropped at this point belongs to. Anything not over the
+    /// room — including the gap between the two — counts as Stuff.
+    private func location(forDropAt position: CGPoint) -> ItemLocation {
+        roomRect.contains(position) ? .room : .stuff
+    }
+
+    /// Keeps a whole item inside its area. In the Stuff panel it also stays clear
+    /// of the Get Stuff button — an item parked on the button could not be picked
+    /// up again, because the tap would spawn a new one instead.
+    private func clampedItemPosition(_ position: CGPoint, size boxSize: CGSize,
+                                     in location: ItemLocation) -> CGPoint {
+        let area = rect(for: location)
+        // A fixed breathing space, not a fraction of the area — the room is far
+        // taller than the Stuff panel and would otherwise fence items off its walls.
+        let margin = itemBaseSize.height * 0.2
+        var rightEdge = area.maxX
+        if location == .stuff, !getStuffButtonRect.isEmpty {
+            rightEdge = getStuffButtonRect.minX
+        }
+
+        let minX = area.minX + margin + boxSize.width / 2
         let maxX = rightEdge - margin - boxSize.width / 2
-        let minY = stuffRect.minY + margin + boxSize.height / 2
-        let maxY = stuffRect.maxY - margin - boxSize.height / 2
+        let minY = area.minY + margin + boxSize.height / 2
+        let maxY = area.maxY - margin - boxSize.height / 2
         return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
                        y: min(max(position.y, minY), max(minY, maxY)))
+    }
+
+    /// While a drag is in progress an item is free to move anywhere across the
+    /// room and the Stuff area; it is only pulled fully inside one of them on release.
+    private func clampedDragPosition(_ position: CGPoint) -> CGPoint {
+        let bounds = roomRect.union(stuffRect)
+        return CGPoint(x: min(max(position.x, bounds.minX), bounds.maxX),
+                       y: min(max(position.y, bounds.minY), bounds.maxY))
     }
 
     // MARK: - Character
@@ -735,8 +789,8 @@ final class GameScene: SKScene {
         }
 
         // Loose items sit in front of everything, so they get first refusal.
-        if let item = topStuffItem(at: location), let node = stuffItemNodes[item.id] {
-            beginStuffItemDrag(item, node: node, touch: touch, at: location)
+        if let item = topItem(at: location), let node = itemNodes[item.id] {
+            beginItemDrag(item, node: node, touch: touch, at: location)
             return
         }
 
@@ -759,17 +813,17 @@ final class GameScene: SKScene {
                              y: characterNode.position.y - location.y)
     }
 
-    private func beginStuffItemDrag(_ item: StuffItem, node: SKNode,
+    private func beginItemDrag(_ item: Item, node: SKNode,
                                     touch: UITouch, at location: CGPoint) {
         // Bring it to the front so it is not dragged underneath its neighbours.
-        if let index = stuffItemIndex(id: item.id) {
-            let moved = stuffItems.remove(at: index)
-            stuffItems.append(moved)
-            refreshStuffItemDepths()
+        if let index = itemIndex(id: item.id) {
+            let moved = items.remove(at: index)
+            items.append(moved)
+            refreshItemDepths()
         }
 
         dragTouch = touch
-        dragSubject = .stuffItem(id: item.id)
+        dragSubject = .item(id: item.id)
         dragOffset = CGPoint(x: node.position.x - location.x,
                              y: node.position.y - location.y)
 
@@ -789,12 +843,14 @@ final class GameScene: SKScene {
             characterAnchor = anchor(for: characterNode.position)
             highlightFurniture(dropTarget())
 
-        case .stuffItem(let id):
-            guard let node = stuffItemNodes[id], let index = stuffItemIndex(id: id) else { return }
-            let item = stuffItems[index]
-            node.position = clampedStuffItemPosition(target, size: itemSize(for: item.kind))
-            stuffItems[index].anchor = anchorInStuff(for: node.position)
-            highlightMergeTarget(mergeTarget(for: item)?.id)
+        case .item(let id):
+            guard let node = itemNodes[id], let index = itemIndex(id: id) else { return }
+            node.position = clampedDragPosition(target)
+            // Keep the model in step so a rotation mid-drag does not snap it back.
+            let carriedTo = location(forDropAt: node.position)
+            items[index].location = carriedTo
+            items[index].anchor = anchor(for: node.position, in: carriedTo)
+            highlightMergeTarget(mergeTarget(for: items[index])?.id)
         }
     }
 
@@ -816,8 +872,8 @@ final class GameScene: SKScene {
         switch subject {
         case .character:
             settleCharacter()
-        case .stuffItem(let id):
-            settleStuffItem(id: id)
+        case .item(let id):
+            settleItem(id: id)
         }
     }
 

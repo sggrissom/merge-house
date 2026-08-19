@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 11 — Complete One Merge Chain.**
+**Current milestone: 12 — Put Merge Objects in the House.**
 
 ## Build & run
 

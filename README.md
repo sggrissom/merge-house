@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 10 — First Merge.**
+**Current milestone: 11 — Complete One Merge Chain.**
 
 ## Build & run
 

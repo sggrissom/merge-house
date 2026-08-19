@@ -5,6 +5,8 @@ final class RoomScene: SKScene {
 
     /// Room chrome (wall, floor, outline, title). Rebuilt whenever the scene resizes.
     private let roomNode = SKNode()
+    /// Placeholder furniture. Rebuilt whenever the scene resizes.
+    private let furnitureNode = SKNode()
     /// The character. A persistent container so it keeps its own state across resizes.
     private let characterNode = SKNode()
 
@@ -26,8 +28,10 @@ final class RoomScene: SKScene {
         anchorPoint = .zero
         backgroundColor = SKColor(red: 0.13, green: 0.12, blue: 0.16, alpha: 1)
         addChild(roomNode)
+        addChild(furnitureNode)
         addChild(characterNode)
-        // The room chrome draws in 0...3, so the character always sits above it.
+        // Room chrome draws in 0...3, then furniture, then the character on top.
+        furnitureNode.zPosition = 5
         characterNode.zPosition = 10
     }
 
@@ -56,6 +60,7 @@ final class RoomScene: SKScene {
                           height: size.height - margin * 2)
 
         layoutRoom()
+        layoutFurniture()
         layoutCharacter()
     }
 
@@ -101,6 +106,69 @@ final class RoomScene: SKScene {
         label.zPosition = 3
         roomNode.addChild(label)
     }
+
+    // MARK: - Furniture
+
+    private func layoutFurniture() {
+        furnitureNode.removeAllChildren()
+
+        let bed = makeFurniture(named: "Bed",
+                                rect: rectInRoom(centerX: 0.18, bottomY: 0.08,
+                                                 width: 0.28, height: 0.16),
+                                color: SKColor(red: 0.55, green: 0.66, blue: 0.85, alpha: 1))
+        bed.zPosition = 0
+        furnitureNode.addChild(bed)
+
+        // The chair sits further back in the room than the table, so it draws behind it.
+        let chair = makeFurniture(named: "Chair",
+                                  rect: rectInRoom(centerX: 0.78, bottomY: 0.24,
+                                                   width: 0.13, height: 0.16),
+                                  color: SKColor(red: 0.55, green: 0.75, blue: 0.58, alpha: 1))
+        chair.zPosition = 1
+        furnitureNode.addChild(chair)
+
+        let table = makeFurniture(named: "Table",
+                                  rect: rectInRoom(centerX: 0.80, bottomY: 0.05,
+                                                   width: 0.20, height: 0.13),
+                                  color: SKColor(red: 0.62, green: 0.45, blue: 0.31, alpha: 1))
+        table.zPosition = 2
+        furnitureNode.addChild(table)
+    }
+
+    /// A labeled placeholder box. Real artwork can replace the shape later.
+    private func makeFurniture(named name: String, rect: CGRect, color: SKColor) -> SKNode {
+        let node = SKNode()
+
+        let box = SKShapeNode(rect: rect, cornerRadius: min(rect.width, rect.height) * 0.15)
+        box.fillColor = color
+        box.strokeColor = SKColor(white: 0.2, alpha: 0.6)
+        box.lineWidth = 2
+        node.addChild(box)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = name
+        label.fontSize = max(11, min(rect.width * 0.22, rect.height * 0.35))
+        label.fontColor = SKColor(white: 0.15, alpha: 1)
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        label.position = CGPoint(x: rect.midX, y: rect.midY)
+        node.addChild(label)
+
+        return node
+    }
+
+    /// Builds a rect from fractions of the room: horizontal centre, bottom edge, and size.
+    private func rectInRoom(centerX: CGFloat, bottomY: CGFloat,
+                            width: CGFloat, height: CGFloat) -> CGRect {
+        let w = roomRect.width * width
+        let h = roomRect.height * height
+        return CGRect(x: roomRect.minX + roomRect.width * centerX - w / 2,
+                      y: roomRect.minY + roomRect.height * bottomY,
+                      width: w,
+                      height: h)
+    }
+
+    // MARK: - Character
 
     /// Builds the placeholder character, sized relative to the room.
     /// The container's position is the character's feet.

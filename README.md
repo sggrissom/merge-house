@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 12 — Put Merge Objects in the House.**
+**Current milestone: 13 — Data-Driven Item Definitions.**
 
 ## Build & run
 

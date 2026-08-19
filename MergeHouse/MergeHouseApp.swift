@@ -4,7 +4,7 @@ import SwiftUI
 struct MergeHouseApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainMenuView()
         }
     }
 }

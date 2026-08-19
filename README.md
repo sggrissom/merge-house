@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 3 — Character Appears.**
+**Current milestone: 4 — Drag the Character.**
 
 ## Build & run
 

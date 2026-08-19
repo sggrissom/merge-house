@@ -11,6 +11,15 @@ final class RoomScene: SKScene {
     /// The playable area of the room in scene coordinates.
     private var roomRect: CGRect = .zero
 
+    /// Where the character stands, as a fraction of `roomRect`, so a resize or
+    /// rotation keeps it in the same relative spot instead of resetting it.
+    private var characterAnchor = CGPoint(x: 0.5, y: 0.10)
+    /// The character's bounds relative to its own origin (its feet), used for clamping.
+    private var characterLocalFrame: CGRect = .zero
+
+    private var dragTouch: UITouch?
+    private var dragOffset: CGPoint = .zero
+
     override init(size: CGSize) {
         super.init(size: size)
         scaleMode = .resizeFill
@@ -104,6 +113,9 @@ final class RoomScene: SKScene {
         let bodyHeight = height - headRadius * 2
         let outlineColor = SKColor(white: 0.2, alpha: 0.6)
 
+        // Build at the origin so the accumulated frame comes out in local coordinates.
+        characterNode.position = .zero
+
         let bodyRect = CGRect(x: -bodyWidth / 2, y: 0, width: bodyWidth, height: bodyHeight)
         let body = SKShapeNode(rect: bodyRect, cornerRadius: bodyWidth * 0.35)
         body.fillColor = SKColor(red: 0.90, green: 0.36, blue: 0.55, alpha: 1)
@@ -127,7 +139,64 @@ final class RoomScene: SKScene {
         label.position = CGPoint(x: 0, y: bodyHeight + headRadius * 1.85 + height * 0.04)
         characterNode.addChild(label)
 
-        characterNode.position = CGPoint(x: roomRect.midX,
-                                         y: roomRect.minY + roomRect.height * 0.10)
+        characterLocalFrame = characterNode.calculateAccumulatedFrame()
+        characterNode.position = clampedCharacterPosition(scenePosition(for: characterAnchor))
+    }
+
+    // MARK: - Character placement
+
+    private func scenePosition(for anchor: CGPoint) -> CGPoint {
+        CGPoint(x: roomRect.minX + anchor.x * roomRect.width,
+                y: roomRect.minY + anchor.y * roomRect.height)
+    }
+
+    private func anchor(for position: CGPoint) -> CGPoint {
+        guard roomRect.width > 0, roomRect.height > 0 else { return characterAnchor }
+        return CGPoint(x: (position.x - roomRect.minX) / roomRect.width,
+                       y: (position.y - roomRect.minY) / roomRect.height)
+    }
+
+    /// Keeps the whole character — label included — inside the room.
+    private func clampedCharacterPosition(_ position: CGPoint) -> CGPoint {
+        let minX = roomRect.minX - characterLocalFrame.minX
+        let maxX = roomRect.maxX - characterLocalFrame.maxX
+        let minY = roomRect.minY - characterLocalFrame.minY
+        let maxY = roomRect.maxY - characterLocalFrame.maxY
+        return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
+                       y: min(max(position.y, minY), max(minY, maxY)))
+    }
+
+    // MARK: - Dragging
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard dragTouch == nil, let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        guard characterNode.calculateAccumulatedFrame().contains(location) else { return }
+
+        dragTouch = touch
+        dragOffset = CGPoint(x: characterNode.position.x - location.x,
+                             y: characterNode.position.y - location.y)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = dragTouch, touches.contains(touch) else { return }
+        let location = touch.location(in: self)
+        let target = CGPoint(x: location.x + dragOffset.x,
+                             y: location.y + dragOffset.y)
+        characterNode.position = clampedCharacterPosition(target)
+        characterAnchor = anchor(for: characterNode.position)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        endDrag(touches)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        endDrag(touches)
+    }
+
+    private func endDrag(_ touches: Set<UITouch>) {
+        guard let touch = dragTouch, touches.contains(touch) else { return }
+        dragTouch = nil
     }
 }

@@ -1,13 +1,22 @@
 import SwiftUI
+import SpriteKit
 
-/// Placeholder game screen. The real room arrives in a later milestone.
 struct GameView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var scene: RoomScene = {
+        RoomScene(size: CGSize(width: 1024, height: 768))
+    }()
+
     var body: some View {
-        Text("Game")
-            .font(.largeTitle)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Game")
+        SpriteView(scene: scene)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Menu") { dismiss() }
+                }
+            }
     }
 }
 

@@ -10,7 +10,7 @@
 		1A0000000000000000000020 /* MergeHouseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000010 /* MergeHouseApp.swift */; };
 		1A0000000000000000000023 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000013 /* MainMenuView.swift */; };
 		1A0000000000000000000024 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000014 /* GameView.swift */; };
-		1A0000000000000000000025 /* RoomScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000015 /* RoomScene.swift */; };
+		1A0000000000000000000025 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000015 /* GameScene.swift */; };
 		1A0000000000000000000022 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000012 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -19,7 +19,7 @@
 		1A0000000000000000000010 /* MergeHouseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeHouseApp.swift; sourceTree = "<group>"; };
 		1A0000000000000000000013 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000014 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
-		1A0000000000000000000015 /* RoomScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScene.swift; sourceTree = "<group>"; };
+		1A0000000000000000000015 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		1A0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -56,7 +56,7 @@
 				1A0000000000000000000010 /* MergeHouseApp.swift */,
 				1A0000000000000000000013 /* MainMenuView.swift */,
 				1A0000000000000000000014 /* GameView.swift */,
-				1A0000000000000000000015 /* RoomScene.swift */,
+				1A0000000000000000000015 /* GameScene.swift */,
 				1A0000000000000000000012 /* Assets.xcassets */,
 			);
 			path = MergeHouse;
@@ -134,7 +134,7 @@
 				1A0000000000000000000020 /* MergeHouseApp.swift in Sources */,
 				1A0000000000000000000023 /* MainMenuView.swift in Sources */,
 				1A0000000000000000000024 /* GameView.swift in Sources */,
-				1A0000000000000000000025 /* RoomScene.swift in Sources */,
+				1A0000000000000000000025 /* GameScene.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

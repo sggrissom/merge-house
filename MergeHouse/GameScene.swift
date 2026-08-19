@@ -1,0 +1,494 @@
+import SpriteKit
+
+/// The whole play area: the bedroom on top, the Stuff area below.
+/// Drawn entirely from shapes and labels — no art assets yet.
+final class GameScene: SKScene {
+
+    // MARK: - Furniture model
+
+    private enum FurnitureKind: String {
+        case bed = "Bed"
+        case chair = "Chair"
+        case table = "Table"
+
+        /// What the character's label reads while using this piece.
+        /// `nil` means the piece cannot be used.
+        var characterLabel: String? {
+            switch self {
+            case .bed: return "Sleeping"
+            case .chair: return "Sitting"
+            case .table: return nil
+            }
+        }
+
+        /// The character lies down on the bed and stays upright everywhere else.
+        var characterRotation: CGFloat {
+            self == .bed ? .pi / 2 : 0
+        }
+
+        var color: SKColor {
+            switch self {
+            case .bed: return SKColor(red: 0.55, green: 0.66, blue: 0.85, alpha: 1)
+            case .chair: return SKColor(red: 0.55, green: 0.75, blue: 0.58, alpha: 1)
+            case .table: return SKColor(red: 0.62, green: 0.45, blue: 0.31, alpha: 1)
+            }
+        }
+    }
+
+    private struct FurniturePiece {
+        let kind: FurnitureKind
+        let rect: CGRect
+    }
+
+    // MARK: - Nodes and state
+
+    /// Room chrome (wall, floor, outline, title). Rebuilt whenever the scene resizes.
+    private let roomNode = SKNode()
+    /// Placeholder furniture. Rebuilt whenever the scene resizes.
+    private let furnitureNode = SKNode()
+    /// The character. A persistent container so it keeps its own state across resizes.
+    private let characterNode = SKNode()
+    /// The Stuff area panel and its button. Rebuilt whenever the scene resizes.
+    private let stuffNode = SKNode()
+
+    /// The playable area of the room in scene coordinates.
+    private var roomRect: CGRect = .zero
+    /// The Stuff area below the room, where mergeable items will live.
+    private var stuffRect: CGRect = .zero
+    private var furniturePieces: [FurniturePiece] = []
+    private var furnitureBoxes: [FurnitureKind: SKShapeNode] = [:]
+
+    private var getStuffButton: SKNode?
+    private var getStuffButtonRect: CGRect = .zero
+
+    /// Where the character stands, as a fraction of `roomRect`, so a resize or
+    /// rotation keeps it in the same relative spot instead of resetting it.
+    private var characterAnchor = CGPoint(x: 0.5, y: 0.10)
+    /// The piece the character is currently using, if any. While set, her position
+    /// comes from that piece rather than from `characterAnchor`.
+    private var characterUsing: FurnitureKind?
+    /// The character's bounds relative to its own origin (its feet), used for clamping.
+    private var characterLocalFrame: CGRect = .zero
+
+    private var dragTouch: UITouch?
+    private var dragOffset: CGPoint = .zero
+
+    // MARK: - Setup
+
+    override init(size: CGSize) {
+        super.init(size: size)
+        scaleMode = .resizeFill
+        anchorPoint = .zero
+        backgroundColor = SKColor(red: 0.13, green: 0.12, blue: 0.16, alpha: 1)
+        addChild(roomNode)
+        addChild(furnitureNode)
+        addChild(characterNode)
+        addChild(stuffNode)
+        // Room chrome draws in 0...3, then furniture, then the character on top.
+        furnitureNode.zPosition = 5
+        characterNode.zPosition = 10
+        stuffNode.zPosition = 20
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func didMove(to view: SKView) {
+        layoutScene()
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        layoutScene()
+    }
+
+    /// Rebuilds everything for the current scene size. Called again on rotation/resize.
+    private func layoutScene() {
+        // didChangeSize can fire before the scene is set up; wait until it is.
+        guard roomNode.parent != nil, size.width > 0, size.height > 0 else { return }
+
+        let margin = min(size.width, size.height) * 0.04
+        let gap = margin * 0.6
+        let content = CGRect(x: margin,
+                             y: margin,
+                             width: size.width - margin * 2,
+                             height: size.height - margin * 2)
+
+        // The room keeps the majority of the screen; Stuff takes a band along the bottom.
+        let stuffHeight = content.height * 0.26
+        stuffRect = CGRect(x: content.minX,
+                           y: content.minY,
+                           width: content.width,
+                           height: stuffHeight)
+        roomRect = CGRect(x: content.minX,
+                          y: content.minY + stuffHeight + gap,
+                          width: content.width,
+                          height: content.height - stuffHeight - gap)
+
+        layoutRoom()
+        layoutFurniture()
+        layoutCharacter()
+        layoutStuff()
+    }
+
+    // MARK: - Room
+
+    private func layoutRoom() {
+        roomNode.removeAllChildren()
+
+        let floorHeight = roomRect.height * 0.38
+        let wall = CGRect(x: roomRect.minX,
+                          y: roomRect.minY + floorHeight,
+                          width: roomRect.width,
+                          height: roomRect.height - floorHeight)
+        let floor = CGRect(x: roomRect.minX,
+                           y: roomRect.minY,
+                           width: roomRect.width,
+                           height: floorHeight)
+
+        let wallNode = SKShapeNode(rect: wall)
+        wallNode.fillColor = SKColor(red: 0.79, green: 0.83, blue: 0.92, alpha: 1)
+        wallNode.strokeColor = .clear
+        wallNode.zPosition = 0
+        roomNode.addChild(wallNode)
+
+        let floorNode = SKShapeNode(rect: floor)
+        floorNode.fillColor = SKColor(red: 0.72, green: 0.56, blue: 0.40, alpha: 1)
+        floorNode.strokeColor = .clear
+        floorNode.zPosition = 1
+        roomNode.addChild(floorNode)
+
+        let outline = SKShapeNode(rect: roomRect)
+        outline.fillColor = .clear
+        outline.strokeColor = SKColor(white: 0.25, alpha: 1)
+        outline.lineWidth = 3
+        outline.zPosition = 2
+        roomNode.addChild(outline)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = "Bedroom"
+        label.fontSize = max(20, roomRect.height * 0.07)
+        label.fontColor = SKColor(white: 0.25, alpha: 1)
+        label.verticalAlignmentMode = .top
+        label.horizontalAlignmentMode = .center
+        label.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - roomRect.height * 0.05)
+        label.zPosition = 3
+        roomNode.addChild(label)
+    }
+
+    // MARK: - Furniture
+
+    private func layoutFurniture() {
+        furnitureNode.removeAllChildren()
+
+        // The chair sits further back in the room than the table, so it draws behind it.
+        furniturePieces = [
+            FurniturePiece(kind: .bed,
+                           rect: rectInRoom(centerX: 0.18, bottomY: 0.08,
+                                            width: 0.28, height: 0.16)),
+            FurniturePiece(kind: .chair,
+                           rect: rectInRoom(centerX: 0.78, bottomY: 0.24,
+                                            width: 0.13, height: 0.16)),
+            FurniturePiece(kind: .table,
+                           rect: rectInRoom(centerX: 0.80, bottomY: 0.05,
+                                            width: 0.20, height: 0.13)),
+        ]
+
+        furnitureBoxes = [:]
+        for (index, piece) in furniturePieces.enumerated() {
+            let box = makeFurniture(named: piece.kind.rawValue,
+                                    rect: piece.rect,
+                                    color: piece.kind.color)
+            box.zPosition = CGFloat(index)
+            furnitureNode.addChild(box)
+            furnitureBoxes[piece.kind] = box
+        }
+    }
+
+    /// A labeled placeholder box. Real artwork can replace the shape later.
+    private func makeFurniture(named name: String, rect: CGRect, color: SKColor) -> SKShapeNode {
+        let box = SKShapeNode(rect: rect, cornerRadius: min(rect.width, rect.height) * 0.15)
+        box.fillColor = color
+        box.strokeColor = Self.furnitureStroke
+        box.lineWidth = 2
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = name
+        label.fontSize = max(11, min(rect.width * 0.22, rect.height * 0.35))
+        label.fontColor = SKColor(white: 0.15, alpha: 1)
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        label.position = CGPoint(x: rect.midX, y: rect.midY)
+        box.addChild(label)
+
+        return box
+    }
+
+    private static let furnitureStroke = SKColor(white: 0.2, alpha: 0.6)
+    private static let furnitureHighlightStroke = SKColor(red: 1.0, green: 0.95, blue: 0.4, alpha: 1)
+
+    /// Outlines the piece the character would land on if released now.
+    private func highlightFurniture(_ kind: FurnitureKind?) {
+        for (boxKind, box) in furnitureBoxes {
+            let isTarget = boxKind == kind
+            box.strokeColor = isTarget ? Self.furnitureHighlightStroke : Self.furnitureStroke
+            box.lineWidth = isTarget ? 6 : 2
+        }
+    }
+
+    /// Builds a rect from fractions of the room: horizontal centre, bottom edge, and size.
+    private func rectInRoom(centerX: CGFloat, bottomY: CGFloat,
+                            width: CGFloat, height: CGFloat) -> CGRect {
+        let w = roomRect.width * width
+        let h = roomRect.height * height
+        return CGRect(x: roomRect.minX + roomRect.width * centerX - w / 2,
+                      y: roomRect.minY + roomRect.height * bottomY,
+                      width: w,
+                      height: h)
+    }
+
+    private func piece(for kind: FurnitureKind) -> FurniturePiece? {
+        furniturePieces.first { $0.kind == kind }
+    }
+
+    /// Where the character's origin (her feet) goes when she uses a piece.
+    private func seatPosition(for piece: FurniturePiece) -> CGPoint {
+        let rect = piece.rect
+        switch piece.kind {
+        case .bed:
+            // Lying across the bed. She is rotated 90°, so her body extends left from here.
+            return CGPoint(x: rect.maxX - rect.width * 0.08, y: rect.midY)
+        case .chair, .table:
+            return CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.10)
+        }
+    }
+
+    // MARK: - Stuff area
+
+    private func layoutStuff() {
+        stuffNode.removeAllChildren()
+
+        let inset = stuffRect.height * 0.12
+
+        let panel = SKShapeNode(rect: stuffRect, cornerRadius: stuffRect.height * 0.12)
+        panel.fillColor = SKColor(red: 0.20, green: 0.19, blue: 0.24, alpha: 1)
+        panel.strokeColor = SKColor(white: 0.35, alpha: 1)
+        panel.lineWidth = 3
+        panel.zPosition = 0
+        stuffNode.addChild(panel)
+
+        let title = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        title.text = "Stuff"
+        title.fontSize = max(16, stuffRect.height * 0.22)
+        title.fontColor = SKColor(white: 0.85, alpha: 1)
+        title.verticalAlignmentMode = .top
+        title.horizontalAlignmentMode = .left
+        title.position = CGPoint(x: stuffRect.minX + inset, y: stuffRect.maxY - inset)
+        title.zPosition = 1
+        stuffNode.addChild(title)
+
+        let buttonWidth = min(stuffRect.width * 0.32, stuffRect.height * 2.2)
+        let buttonHeight = stuffRect.height * 0.42
+        getStuffButtonRect = CGRect(x: stuffRect.maxX - inset - buttonWidth,
+                                    y: stuffRect.midY - buttonHeight / 2,
+                                    width: buttonWidth,
+                                    height: buttonHeight)
+        let button = makeGetStuffButton(rect: getStuffButtonRect)
+        button.zPosition = 2
+        stuffNode.addChild(button)
+        getStuffButton = button
+    }
+
+    /// Built around its own centre so it can scale when pressed.
+    private func makeGetStuffButton(rect: CGRect) -> SKNode {
+        let node = SKNode()
+        node.position = CGPoint(x: rect.midX, y: rect.midY)
+
+        let background = SKShapeNode(rect: CGRect(x: -rect.width / 2, y: -rect.height / 2,
+                                                  width: rect.width, height: rect.height),
+                                     cornerRadius: rect.height * 0.35)
+        background.fillColor = SKColor(red: 0.35, green: 0.55, blue: 0.92, alpha: 1)
+        background.strokeColor = SKColor(white: 0.9, alpha: 0.8)
+        background.lineWidth = 2
+        node.addChild(background)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = "Get Stuff"
+        label.fontSize = max(13, rect.height * 0.42)
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        node.addChild(label)
+
+        return node
+    }
+
+    /// Nothing to spawn yet — the button just acknowledges the tap for now.
+    private func getStuffTapped() {
+        guard let button = getStuffButton else { return }
+        button.removeAllActions()
+        button.setScale(1)
+        button.run(.sequence([.scale(to: 0.92, duration: 0.06),
+                              .scale(to: 1.0, duration: 0.09)]))
+    }
+
+    // MARK: - Character
+
+    /// Builds the placeholder character, sized relative to the room.
+    /// The container's position is the character's feet.
+    private func layoutCharacter() {
+        characterNode.removeAllChildren()
+
+        let height = roomRect.height * 0.30
+        let bodyWidth = height * 0.42
+        let headRadius = height * 0.16
+        let bodyHeight = height - headRadius * 2
+        let outlineColor = SKColor(white: 0.2, alpha: 0.6)
+
+        // Build at the origin, unrotated, so the accumulated frame comes out
+        // in local coordinates.
+        characterNode.position = .zero
+        characterNode.zRotation = 0
+
+        let bodyRect = CGRect(x: -bodyWidth / 2, y: 0, width: bodyWidth, height: bodyHeight)
+        let body = SKShapeNode(rect: bodyRect, cornerRadius: bodyWidth * 0.35)
+        body.fillColor = SKColor(red: 0.90, green: 0.36, blue: 0.55, alpha: 1)
+        body.strokeColor = outlineColor
+        body.lineWidth = 2
+        characterNode.addChild(body)
+
+        let head = SKShapeNode(circleOfRadius: headRadius)
+        head.position = CGPoint(x: 0, y: bodyHeight + headRadius * 0.85)
+        head.fillColor = SKColor(red: 0.98, green: 0.84, blue: 0.72, alpha: 1)
+        head.strokeColor = outlineColor
+        head.lineWidth = 2
+        characterNode.addChild(head)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = characterUsing?.characterLabel ?? "Girl"
+        label.fontSize = max(12, height * 0.15)
+        label.fontColor = SKColor(white: 0.15, alpha: 1)
+        label.verticalAlignmentMode = .bottom
+        label.horizontalAlignmentMode = .center
+        label.position = CGPoint(x: 0, y: bodyHeight + headRadius * 1.85 + height * 0.04)
+        characterNode.addChild(label)
+
+        characterLocalFrame = characterNode.calculateAccumulatedFrame()
+
+        if let kind = characterUsing, let piece = piece(for: kind) {
+            characterNode.zRotation = kind.characterRotation
+            characterNode.position = seatPosition(for: piece)
+        } else {
+            characterNode.position = clampedCharacterPosition(scenePosition(for: characterAnchor))
+        }
+    }
+
+    // MARK: - Character placement
+
+    private func scenePosition(for anchor: CGPoint) -> CGPoint {
+        CGPoint(x: roomRect.minX + anchor.x * roomRect.width,
+                y: roomRect.minY + anchor.y * roomRect.height)
+    }
+
+    private func anchor(for position: CGPoint) -> CGPoint {
+        guard roomRect.width > 0, roomRect.height > 0 else { return characterAnchor }
+        return CGPoint(x: (position.x - roomRect.minX) / roomRect.width,
+                       y: (position.y - roomRect.minY) / roomRect.height)
+    }
+
+    /// Keeps the whole character — label included — inside the room.
+    private func clampedCharacterPosition(_ position: CGPoint) -> CGPoint {
+        let minX = roomRect.minX - characterLocalFrame.minX
+        let maxX = roomRect.maxX - characterLocalFrame.maxX
+        let minY = roomRect.minY - characterLocalFrame.minY
+        let maxY = roomRect.maxY - characterLocalFrame.maxY
+        return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
+                       y: min(max(position.y, minY), max(minY, maxY)))
+    }
+
+    // MARK: - Dragging
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard dragTouch == nil, let touch = touches.first else { return }
+        let location = touch.location(in: self)
+
+        if getStuffButtonRect.contains(location) {
+            getStuffTapped()
+            return
+        }
+
+        guard characterNode.calculateAccumulatedFrame().contains(location) else { return }
+
+        if characterUsing != nil {
+            // Stand her up where she is, then let the drag carry on from there.
+            characterAnchor = anchor(for: characterNode.position)
+            characterUsing = nil
+            layoutCharacter()
+        }
+
+        dragTouch = touch
+        dragOffset = CGPoint(x: characterNode.position.x - location.x,
+                             y: characterNode.position.y - location.y)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = dragTouch, touches.contains(touch) else { return }
+        let location = touch.location(in: self)
+        let target = CGPoint(x: location.x + dragOffset.x,
+                             y: location.y + dragOffset.y)
+        characterNode.position = clampedCharacterPosition(target)
+        characterAnchor = anchor(for: characterNode.position)
+        highlightFurniture(dropTarget())
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        endDrag(touches)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        endDrag(touches)
+    }
+
+    private func endDrag(_ touches: Set<UITouch>) {
+        guard let touch = dragTouch, touches.contains(touch) else { return }
+        dragTouch = nil
+        settleCharacter()
+    }
+
+    /// Which usable piece the character is currently over, if any.
+    ///
+    /// This compares how much of her *overlaps* each piece rather than testing a
+    /// single point. Her origin is at her feet, so a point test only matched when
+    /// she was grabbed low down — dragging her body onto the bed left her feet
+    /// below it and nothing happened.
+    private func dropTarget() -> FurnitureKind? {
+        let characterFrame = characterNode.calculateAccumulatedFrame()
+        let characterArea = characterFrame.width * characterFrame.height
+        var best: (kind: FurnitureKind, overlap: CGFloat)?
+
+        for piece in furniturePieces where piece.kind.characterLabel != nil {
+            let intersection = characterFrame.intersection(piece.rect)
+            guard !intersection.isNull else { continue }
+
+            let overlap = intersection.width * intersection.height
+            let pieceArea = piece.rect.width * piece.rect.height
+            // A quarter of the smaller of the two, so brushing past does not count.
+            guard overlap >= min(characterArea, pieceArea) * 0.25 else { continue }
+            if let current = best, overlap <= current.overlap { continue }
+
+            best = (piece.kind, overlap)
+        }
+
+        return best?.kind
+    }
+
+    /// On release, snap the character onto whichever piece she was dropped on.
+    /// Otherwise she simply stays where she was put.
+    private func settleCharacter() {
+        highlightFurniture(nil)
+        guard let kind = dropTarget() else { return }
+        characterUsing = kind
+        layoutCharacter()
+    }
+}

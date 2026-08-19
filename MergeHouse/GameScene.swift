@@ -567,7 +567,7 @@ final class GameScene: SKScene {
                                           size: itemSize(for: items[index].kind),
                                           in: dropLocation)
         items[index].location = dropLocation
-        items[index].anchor = anchor(for: resting, in: dropLocation)
+        items[index].anchor = itemAnchor(for: resting, in: dropLocation)
         node.position = resting
 
         let dropped = items[index]
@@ -588,7 +588,7 @@ final class GameScene: SKScene {
 
         let resting = clampedItemPosition(meetingPoint, size: itemSize(for: kind), in: .stuff)
         let node = addItem(kind: kind, location: .stuff,
-                           anchor: anchor(for: resting, in: .stuff))
+                           anchor: itemAnchor(for: resting, in: .stuff))
         node.setScale(0.5)
         node.run(.sequence([.scale(to: 1.15, duration: 0.10),
                             .scale(to: 1.0, duration: 0.08)]))
@@ -643,7 +643,7 @@ final class GameScene: SKScene {
             CGFloat(row) * (itemBaseSize.height + spacing)
 
         let slotPoint = clampedItemPosition(CGPoint(x: x, y: y), size: itemBaseSize, in: .stuff)
-        return anchor(for: slotPoint, in: .stuff)
+        return itemAnchor(for: slotPoint, in: .stuff)
     }
 
     private func rect(for location: ItemLocation) -> CGRect {
@@ -660,7 +660,7 @@ final class GameScene: SKScene {
         return clampedItemPosition(position, size: itemSize(for: item.kind), in: item.location)
     }
 
-    private func anchor(for position: CGPoint, in location: ItemLocation) -> CGPoint {
+    private func itemAnchor(for position: CGPoint, in location: ItemLocation) -> CGPoint {
         let area = rect(for: location)
         guard area.width > 0, area.height > 0 else { return CGPoint(x: 0.5, y: 0.5) }
         return CGPoint(x: (position.x - area.minX) / area.width,
@@ -761,7 +761,7 @@ final class GameScene: SKScene {
                 y: roomRect.minY + anchor.y * roomRect.height)
     }
 
-    private func anchor(for position: CGPoint) -> CGPoint {
+    private func characterAnchor(for position: CGPoint) -> CGPoint {
         guard roomRect.width > 0, roomRect.height > 0 else { return characterAnchor }
         return CGPoint(x: (position.x - roomRect.minX) / roomRect.width,
                        y: (position.y - roomRect.minY) / roomRect.height)
@@ -802,7 +802,7 @@ final class GameScene: SKScene {
     private func beginCharacterDrag(touch: UITouch, at location: CGPoint) {
         if characterUsing != nil {
             // Stand her up where she is, then let the drag carry on from there.
-            characterAnchor = anchor(for: characterNode.position)
+            characterAnchor = characterAnchor(for: characterNode.position)
             characterUsing = nil
             layoutCharacter()
         }
@@ -840,16 +840,16 @@ final class GameScene: SKScene {
         switch subject {
         case .character:
             characterNode.position = clampedCharacterPosition(target)
-            characterAnchor = anchor(for: characterNode.position)
+            characterAnchor = characterAnchor(for: characterNode.position)
             highlightFurniture(dropTarget())
 
         case .item(let id):
             guard let node = itemNodes[id], let index = itemIndex(id: id) else { return }
             node.position = clampedDragPosition(target)
             // Keep the model in step so a rotation mid-drag does not snap it back.
-            let carriedTo = location(forDropAt: node.position)
+            let carriedTo = self.location(forDropAt: node.position)
             items[index].location = carriedTo
-            items[index].anchor = anchor(for: node.position, in: carriedTo)
+            items[index].anchor = itemAnchor(for: node.position, in: carriedTo)
             highlightMergeTarget(mergeTarget(for: items[index])?.id)
         }
     }
@@ -913,3 +913,4 @@ final class GameScene: SKScene {
         layoutCharacter()
     }
 }
+

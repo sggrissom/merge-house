@@ -63,8 +63,12 @@ final class GameScene: SKScene {
     private var getStuffButton: SKNode?
     private var getStuffButtonRect: CGRect = .zero
 
-    /// The items currently in the Stuff area, oldest first.
+    /// The items currently in the Stuff area, back to front: the last one draws
+    /// on top and is the first to be picked up.
     private var stuffItems: [StuffItem] = []
+    /// The node showing each item, keyed by item id.
+    private var stuffItemNodes: [Int: SKNode] = [:]
+    private var nextStuffItemID = 0
     /// The part of the Stuff area new items are dealt into: clear of the title and button.
     private var stuffSpawnRect: CGRect = .zero
     /// Placeholder size for one item, scaled to the current Stuff area.
@@ -79,7 +83,14 @@ final class GameScene: SKScene {
     /// The character's bounds relative to its own origin (its feet), used for clamping.
     private var characterLocalFrame: CGRect = .zero
 
+    /// What the current drag is moving.
+    private enum DragSubject {
+        case character
+        case stuffItem(id: Int)
+    }
+
     private var dragTouch: UITouch?
+    private var dragSubject: DragSubject?
     private var dragOffset: CGPoint = .zero
 
     // MARK: - Setup
@@ -363,26 +374,64 @@ final class GameScene: SKScene {
     /// One loose object in the Stuff area. Its position is stored as a fraction of
     /// `stuffRect` so a resize or rotation keeps it in the same relative spot.
     private struct StuffItem {
+        let id: Int
         let name: String
         var anchor: CGPoint
     }
 
     private func spawnStuffItem() {
-        let item = StuffItem(name: "Little Teddy",
+        let item = StuffItem(id: nextStuffItemID,
+                             name: "Little Teddy",
                              anchor: spawnAnchor(forItemAt: stuffItems.count))
+        nextStuffItemID += 1
         stuffItems.append(item)
 
-        let node = makeStuffItemNode(for: item)
+        let node = addStuffItemNode(for: item)
         node.setScale(0.6)
         node.run(.scale(to: 1.0, duration: 0.12))
-        stuffItemsNode.addChild(node)
+        refreshStuffItemDepths()
     }
 
     private func layoutStuffItems() {
         stuffItemsNode.removeAllChildren()
+        stuffItemNodes = [:]
         for item in stuffItems {
-            stuffItemsNode.addChild(makeStuffItemNode(for: item))
+            addStuffItemNode(for: item)
         }
+        refreshStuffItemDepths()
+    }
+
+    @discardableResult
+    private func addStuffItemNode(for item: StuffItem) -> SKNode {
+        let node = makeStuffItemNode(for: item)
+        stuffItemNodes[item.id] = node
+        stuffItemsNode.addChild(node)
+        return node
+    }
+
+    /// Draw order follows `stuffItems`, so moving an item to the end of the
+    /// array is what brings it to the front.
+    private func refreshStuffItemDepths() {
+        for (index, item) in stuffItems.enumerated() {
+            stuffItemNodes[item.id]?.zPosition = CGFloat(index)
+        }
+    }
+
+    private func stuffItemIndex(id: Int) -> Int? {
+        stuffItems.firstIndex { $0.id == id }
+    }
+
+    /// The topmost item under a touch, if any. A little slop around the box
+    /// makes small items easier to grab with a finger.
+    private func topStuffItem(at location: CGPoint) -> StuffItem? {
+        let slop = stuffItemSize.height * 0.12
+        for item in stuffItems.reversed() {
+            guard let node = stuffItemNodes[item.id] else { continue }
+            if node.calculateAccumulatedFrame().insetBy(dx: -slop, dy: -slop).contains(location) {
+                return item
+            }
+        }
+        return nil
     }
 
     /// A labeled placeholder box built around its own centre, so it can be
@@ -446,11 +495,14 @@ final class GameScene: SKScene {
                        y: (position.y - stuffRect.minY) / stuffRect.height)
     }
 
-    /// Keeps a whole item inside the Stuff panel, whatever the current size.
+    /// Keeps a whole item inside the Stuff panel, whatever the current size, and
+    /// clear of the Get Stuff button — an item parked on the button could not be
+    /// picked up again, because the tap would spawn a new one instead.
     private func clampedStuffItemPosition(_ position: CGPoint) -> CGPoint {
         let margin = stuffRect.height * 0.06
+        let rightEdge = getStuffButtonRect.isEmpty ? stuffRect.maxX : getStuffButtonRect.minX
         let minX = stuffRect.minX + margin + stuffItemSize.width / 2
-        let maxX = stuffRect.maxX - margin - stuffItemSize.width / 2
+        let maxX = rightEdge - margin - stuffItemSize.width / 2
         let minY = stuffRect.minY + margin + stuffItemSize.height / 2
         let maxY = stuffRect.maxY - margin - stuffItemSize.height / 2
         return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
@@ -542,8 +594,18 @@ final class GameScene: SKScene {
             return
         }
 
-        guard characterNode.calculateAccumulatedFrame().contains(location) else { return }
+        // Loose items sit in front of everything, so they get first refusal.
+        if let item = topStuffItem(at: location), let node = stuffItemNodes[item.id] {
+            beginStuffItemDrag(item, node: node, touch: touch, at: location)
+            return
+        }
 
+        if characterNode.calculateAccumulatedFrame().contains(location) {
+            beginCharacterDrag(touch: touch, at: location)
+        }
+    }
+
+    private func beginCharacterDrag(touch: UITouch, at location: CGPoint) {
         if characterUsing != nil {
             // Stand her up where she is, then let the drag carry on from there.
             characterAnchor = anchor(for: characterNode.position)
@@ -552,18 +614,46 @@ final class GameScene: SKScene {
         }
 
         dragTouch = touch
+        dragSubject = .character
         dragOffset = CGPoint(x: characterNode.position.x - location.x,
                              y: characterNode.position.y - location.y)
     }
 
+    private func beginStuffItemDrag(_ item: StuffItem, node: SKNode,
+                                    touch: UITouch, at location: CGPoint) {
+        // Bring it to the front so it is not dragged underneath its neighbours.
+        if let index = stuffItemIndex(id: item.id) {
+            let moved = stuffItems.remove(at: index)
+            stuffItems.append(moved)
+            refreshStuffItemDepths()
+        }
+
+        dragTouch = touch
+        dragSubject = .stuffItem(id: item.id)
+        dragOffset = CGPoint(x: node.position.x - location.x,
+                             y: node.position.y - location.y)
+
+        node.removeAllActions()
+        node.run(.scale(to: 1.08, duration: 0.08))
+    }
+
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = dragTouch, touches.contains(touch) else { return }
+        guard let touch = dragTouch, touches.contains(touch), let subject = dragSubject else { return }
         let location = touch.location(in: self)
         let target = CGPoint(x: location.x + dragOffset.x,
                              y: location.y + dragOffset.y)
-        characterNode.position = clampedCharacterPosition(target)
-        characterAnchor = anchor(for: characterNode.position)
-        highlightFurniture(dropTarget())
+
+        switch subject {
+        case .character:
+            characterNode.position = clampedCharacterPosition(target)
+            characterAnchor = anchor(for: characterNode.position)
+            highlightFurniture(dropTarget())
+
+        case .stuffItem(let id):
+            guard let node = stuffItemNodes[id], let index = stuffItemIndex(id: id) else { return }
+            node.position = clampedStuffItemPosition(target)
+            stuffItems[index].anchor = anchorInStuff(for: node.position)
+        }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -576,8 +666,19 @@ final class GameScene: SKScene {
 
     private func endDrag(_ touches: Set<UITouch>) {
         guard let touch = dragTouch, touches.contains(touch) else { return }
+        let subject = dragSubject
         dragTouch = nil
-        settleCharacter()
+        dragSubject = nil
+        guard let subject = subject else { return }
+
+        switch subject {
+        case .character:
+            settleCharacter()
+        case .stuffItem(let id):
+            guard let node = stuffItemNodes[id] else { return }
+            node.removeAllActions()
+            node.run(.scale(to: 1.0, duration: 0.08))
+        }
     }
 
     /// Which usable piece the character is currently over, if any.

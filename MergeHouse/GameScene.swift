@@ -50,6 +50,8 @@ final class GameScene: SKScene {
     private let characterNode = SKNode()
     /// The Stuff area panel and its button. Rebuilt whenever the scene resizes.
     private let stuffNode = SKNode()
+    /// The loose items sitting in the Stuff area, drawn on top of its panel.
+    private let stuffItemsNode = SKNode()
 
     /// The playable area of the room in scene coordinates.
     private var roomRect: CGRect = .zero
@@ -60,6 +62,13 @@ final class GameScene: SKScene {
 
     private var getStuffButton: SKNode?
     private var getStuffButtonRect: CGRect = .zero
+
+    /// The items currently in the Stuff area, oldest first.
+    private var stuffItems: [StuffItem] = []
+    /// The part of the Stuff area new items are dealt into: clear of the title and button.
+    private var stuffSpawnRect: CGRect = .zero
+    /// Placeholder size for one item, scaled to the current Stuff area.
+    private var stuffItemSize: CGSize = .zero
 
     /// Where the character stands, as a fraction of `roomRect`, so a resize or
     /// rotation keeps it in the same relative spot instead of resetting it.
@@ -84,10 +93,12 @@ final class GameScene: SKScene {
         addChild(furnitureNode)
         addChild(characterNode)
         addChild(stuffNode)
+        addChild(stuffItemsNode)
         // Room chrome draws in 0...3, then furniture, then the character on top.
         furnitureNode.zPosition = 5
         characterNode.zPosition = 10
         stuffNode.zPosition = 20
+        stuffItemsNode.zPosition = 25
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -130,6 +141,7 @@ final class GameScene: SKScene {
         layoutFurniture()
         layoutCharacter()
         layoutStuff()
+        layoutStuffItems()
     }
 
     // MARK: - Room
@@ -278,9 +290,10 @@ final class GameScene: SKScene {
         panel.zPosition = 0
         stuffNode.addChild(panel)
 
+        let titleFontSize = max(16, stuffRect.height * 0.22)
         let title = SKLabelNode(fontNamed: "AvenirNext-Bold")
         title.text = "Stuff"
-        title.fontSize = max(16, stuffRect.height * 0.22)
+        title.fontSize = titleFontSize
         title.fontColor = SKColor(white: 0.85, alpha: 1)
         title.verticalAlignmentMode = .top
         title.horizontalAlignmentMode = .left
@@ -298,6 +311,16 @@ final class GameScene: SKScene {
         button.zPosition = 2
         stuffNode.addChild(button)
         getStuffButton = button
+
+        // Items are dealt into the space left of the button and below the title.
+        let itemHeight = stuffRect.height * 0.30
+        stuffItemSize = CGSize(width: itemHeight * 2.1, height: itemHeight)
+        stuffSpawnRect = CGRect(x: stuffRect.minX + inset,
+                                y: stuffRect.minY + inset,
+                                width: max(stuffItemSize.width,
+                                           getStuffButtonRect.minX - inset * 2 - stuffRect.minX),
+                                height: max(stuffItemSize.height,
+                                            stuffRect.height - inset * 2 - titleFontSize))
     }
 
     /// Built around its own centre so it can scale when pressed.
@@ -324,13 +347,114 @@ final class GameScene: SKScene {
         return node
     }
 
-    /// Nothing to spawn yet — the button just acknowledges the tap for now.
+    /// Each tap drops one more placeholder item into the Stuff area.
     private func getStuffTapped() {
-        guard let button = getStuffButton else { return }
-        button.removeAllActions()
-        button.setScale(1)
-        button.run(.sequence([.scale(to: 0.92, duration: 0.06),
-                              .scale(to: 1.0, duration: 0.09)]))
+        if let button = getStuffButton {
+            button.removeAllActions()
+            button.setScale(1)
+            button.run(.sequence([.scale(to: 0.92, duration: 0.06),
+                                  .scale(to: 1.0, duration: 0.09)]))
+        }
+        spawnStuffItem()
+    }
+
+    // MARK: - Stuff items
+
+    /// One loose object in the Stuff area. Its position is stored as a fraction of
+    /// `stuffRect` so a resize or rotation keeps it in the same relative spot.
+    private struct StuffItem {
+        let name: String
+        var anchor: CGPoint
+    }
+
+    private func spawnStuffItem() {
+        let item = StuffItem(name: "Little Teddy",
+                             anchor: spawnAnchor(forItemAt: stuffItems.count))
+        stuffItems.append(item)
+
+        let node = makeStuffItemNode(for: item)
+        node.setScale(0.6)
+        node.run(.scale(to: 1.0, duration: 0.12))
+        stuffItemsNode.addChild(node)
+    }
+
+    private func layoutStuffItems() {
+        stuffItemsNode.removeAllChildren()
+        for item in stuffItems {
+            stuffItemsNode.addChild(makeStuffItemNode(for: item))
+        }
+    }
+
+    /// A labeled placeholder box built around its own centre, so it can be
+    /// positioned and scaled by its middle. Real artwork can replace the shape later.
+    private func makeStuffItemNode(for item: StuffItem) -> SKNode {
+        let size = stuffItemSize
+        let node = SKNode()
+        node.position = clampedStuffItemPosition(stuffPosition(for: item.anchor))
+
+        let box = SKShapeNode(rect: CGRect(x: -size.width / 2, y: -size.height / 2,
+                                           width: size.width, height: size.height),
+                              cornerRadius: size.height * 0.22)
+        box.fillColor = SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1)
+        box.strokeColor = SKColor(white: 0.15, alpha: 0.7)
+        box.lineWidth = 2
+        node.addChild(box)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = item.name
+        label.fontSize = max(10, min(size.width * 0.17, size.height * 0.30))
+        label.fontColor = SKColor(white: 0.12, alpha: 1)
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        node.addChild(label)
+
+        return node
+    }
+
+    /// Deals items into a grid across the spawn area, wrapping back to the first
+    /// slot once it is full. Nothing stops items sharing a slot yet — they can be
+    /// moved apart once items become draggable.
+    private func spawnAnchor(forItemAt index: Int) -> CGPoint {
+        let spacing = stuffItemSize.height * 0.25
+        let columns = max(1, Int((stuffSpawnRect.width + spacing) / (stuffItemSize.width + spacing)))
+        let rows = max(1, Int((stuffSpawnRect.height + spacing) / (stuffItemSize.height + spacing)))
+        let slots = columns * rows
+        let slot = index % slots
+        let column = slot % columns
+        let row = slot / columns
+        // Once the grid is full it starts again, nudged so the new item is not
+        // hidden exactly behind the old one.
+        let cascade = stuffItemSize.height * 0.18 * CGFloat((index / slots) % 3)
+
+        let x = stuffSpawnRect.minX + stuffItemSize.width / 2 + cascade +
+            CGFloat(column) * (stuffItemSize.width + spacing)
+        // Dealt from the top of the spawn area downwards.
+        let y = stuffSpawnRect.maxY - stuffItemSize.height / 2 - cascade -
+            CGFloat(row) * (stuffItemSize.height + spacing)
+
+        return anchorInStuff(for: clampedStuffItemPosition(CGPoint(x: x, y: y)))
+    }
+
+    private func stuffPosition(for anchor: CGPoint) -> CGPoint {
+        CGPoint(x: stuffRect.minX + anchor.x * stuffRect.width,
+                y: stuffRect.minY + anchor.y * stuffRect.height)
+    }
+
+    private func anchorInStuff(for position: CGPoint) -> CGPoint {
+        guard stuffRect.width > 0, stuffRect.height > 0 else { return CGPoint(x: 0.5, y: 0.5) }
+        return CGPoint(x: (position.x - stuffRect.minX) / stuffRect.width,
+                       y: (position.y - stuffRect.minY) / stuffRect.height)
+    }
+
+    /// Keeps a whole item inside the Stuff panel, whatever the current size.
+    private func clampedStuffItemPosition(_ position: CGPoint) -> CGPoint {
+        let margin = stuffRect.height * 0.06
+        let minX = stuffRect.minX + margin + stuffItemSize.width / 2
+        let maxX = stuffRect.maxX - margin - stuffItemSize.width / 2
+        let minY = stuffRect.minY + margin + stuffItemSize.height / 2
+        let maxY = stuffRect.maxY - margin - stuffItemSize.height / 2
+        return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
+                       y: min(max(position.y, minY), max(minY, maxY)))
     }
 
     // MARK: - Character

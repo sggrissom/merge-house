@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 7 — Add the Stuff Area.**
+**Current milestone: 8 — Spawn the First Item.**
 
 ## Build & run
 

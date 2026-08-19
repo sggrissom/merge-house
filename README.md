@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 5 — Placeholder Furniture.**
+**Current milestone: 6 — Character Uses Furniture.**
 
 ## Build & run
 

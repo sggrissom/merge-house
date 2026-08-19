@@ -2,7 +2,7 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 0 — Project Exists.**
+**Current milestone: 1 — Main Menu.**
 
 ## Build & run
 

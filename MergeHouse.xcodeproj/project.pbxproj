@@ -13,7 +13,12 @@
 		1A0000000000000000000024 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000014 /* GameView.swift */; };
 		1A0000000000000000000025 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000015 /* GameScene.swift */; };
 		1A0000000000000000000026 /* ItemCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000016 /* ItemCatalog.swift */; };
-		33F5CFE330365ECC000C3EDD /* Basic_human_drawing.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */; };
+		33F5CFE73036669A000C3EDD /* crown.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFE63036669A000C3EDD /* crown.png */; };
+		33F5CFFE30369E23000C3EDD /* bow.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFB30369E23000C3EDD /* bow.png */; };
+		33F5CFFF30369E23000C3EDD /* bear.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFA30369E23000C3EDD /* bear.png */; };
+		33F5D00130369E23000C3EDD /* fancy-bow.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFD30369E23000C3EDD /* fancy-bow.png */; };
+		33F5D00330369E53000C3EDD /* tiara.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D00230369E53000C3EDD /* tiara.png */; };
+		33F5D00530369EBB000C3EDD /* Basic_human_drawing.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D00430369EBB000C3EDD /* Basic_human_drawing.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,7 +29,12 @@
 		1A0000000000000000000014 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000015 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		1A0000000000000000000016 /* ItemCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCatalog.swift; sourceTree = "<group>"; };
-		33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Basic_human_drawing.png; sourceTree = "<group>"; };
+		33F5CFE63036669A000C3EDD /* crown.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = crown.png; sourceTree = "<group>"; };
+		33F5CFFA30369E23000C3EDD /* bear.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bear.png; sourceTree = "<group>"; };
+		33F5CFFB30369E23000C3EDD /* bow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bow.png; sourceTree = "<group>"; };
+		33F5CFFD30369E23000C3EDD /* fancy-bow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "fancy-bow.png"; sourceTree = "<group>"; };
+		33F5D00230369E53000C3EDD /* tiara.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = tiara.png; sourceTree = "<group>"; };
+		33F5D00430369EBB000C3EDD /* Basic_human_drawing.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Basic_human_drawing.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,7 +73,12 @@
 				1A0000000000000000000015 /* GameScene.swift */,
 				1A0000000000000000000016 /* ItemCatalog.swift */,
 				1A0000000000000000000012 /* Assets.xcassets */,
-				33F5CFE230365ECC000C3EDD /* Basic_human_drawing.png */,
+				33F5CFE63036669A000C3EDD /* crown.png */,
+				33F5CFFA30369E23000C3EDD /* bear.png */,
+				33F5CFFB30369E23000C3EDD /* bow.png */,
+				33F5CFFD30369E23000C3EDD /* fancy-bow.png */,
+				33F5D00230369E53000C3EDD /* tiara.png */,
+				33F5D00430369EBB000C3EDD /* Basic_human_drawing.png */,
 			);
 			path = MergeHouse;
 			sourceTree = "<group>";
@@ -126,8 +141,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33F5CFE73036669A000C3EDD /* crown.png in Resources */,
+				33F5CFFE30369E23000C3EDD /* bow.png in Resources */,
+				33F5CFFF30369E23000C3EDD /* bear.png in Resources */,
+				33F5D00330369E53000C3EDD /* tiara.png in Resources */,
+				33F5D00130369E23000C3EDD /* fancy-bow.png in Resources */,
 				1A0000000000000000000022 /* Assets.xcassets in Resources */,
-				33F5CFE330365ECC000C3EDD /* Basic_human_drawing.png in Resources */,
+				33F5D00530369EBB000C3EDD /* Basic_human_drawing.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

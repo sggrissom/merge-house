@@ -1,4 +1,5 @@
 import SpriteKit
+import UIKit
 
 /// One kind of object in the game: what it is called, what it should look like,
 /// and what a pair of them merges into.
@@ -16,6 +17,19 @@ struct ItemDefinition {
     let scale: CGFloat
     /// Placeholder fill, used only while `imageName` has no artwork behind it.
     let placeholderColor: SKColor
+
+    /// The drawing behind this item, if the asset actually exists. Missing art is
+    /// the normal state during exploration, so this is an `Optional`, not an error.
+    var artwork: UIImage? {
+        guard let imageName = imageName else { return nil }
+        return UIImage(named: imageName)
+    }
+
+    /// What to call the missing file, so the Catalog can tell you what to draw next.
+    var missingArtworkNote: String {
+        guard let imageName = imageName else { return "no image set" }
+        return "needs \(imageName).png"
+    }
 }
 
 /// Every item in the prototype. A new merge chain is entries in this list and
@@ -98,6 +112,23 @@ enum ItemCatalog {
     /// being listed above.
     static let starters: [ItemDefinition] = all.filter { candidate in
         !all.contains { $0.mergesInto == candidate.id }
+    }
+
+    /// Every merge chain, bottom to top. Built by walking `mergesInto` from each
+    /// starter, so adding a chain to `all` is still the only step there is.
+    static let chains: [[ItemDefinition]] = starters.map { starter in
+        var chain = [starter]
+        var seen: Set<String> = [starter.id]
+        while let next = mergeResult(for: chain[chain.count - 1]), !seen.contains(next.id) {
+            chain.append(next)
+            seen.insert(next.id)
+        }
+        return chain
+    }
+
+    /// Catalog order, used to sort loose items so a chain reads left to right.
+    static func sortIndex(of definition: ItemDefinition) -> Int {
+        all.firstIndex { $0.id == definition.id } ?? all.count
     }
 
     /// One random level-one item.

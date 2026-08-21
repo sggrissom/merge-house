@@ -1,6 +1,41 @@
 import SpriteKit
 import UIKit
 
+/// How a character can have an item: not what the item *does*, but where on a
+/// body it goes.
+///
+/// This is deliberately only the item's half of the bargain. A Bow knows it is a
+/// thing worn on the head and nothing more; where the head actually is on any
+/// particular character — and how big a hat should be there — is that
+/// character's business, in `CarryPoint`. Neither side has to know about the
+/// other, so a new item works on every character and a new character wears
+/// everything already in the game.
+enum CarryStyle: String, CaseIterable {
+    case head
+    case hand
+    case body
+
+    /// How carried things stack on the body. You hold a teddy in front of the
+    /// dress you are wearing, and a hat sits over both — so the order is fixed
+    /// here rather than left to whichever item happened to be put on last.
+    var depth: CGFloat {
+        switch self {
+        case .body: return 1
+        case .head: return 2
+        case .hand: return 3
+        }
+    }
+
+    /// How the Catalog describes it.
+    var note: String {
+        switch self {
+        case .head: return "on the head"
+        case .hand: return "held"
+        case .body: return "worn"
+        }
+    }
+}
+
 /// One kind of object in the game: what it is called, what it should look like,
 /// and what a pair of them merges into.
 ///
@@ -17,6 +52,9 @@ struct ItemDefinition {
     let scale: CGFloat
     /// Placeholder fill, used only while `imageName` has no artwork behind it.
     let placeholderColor: SKColor
+    /// Where this goes on a character, if it can go on one at all. `nil` is an
+    /// item you only ever put down — a Cake dropped on someone lands beside them.
+    let carry: CarryStyle?
 
     /// The drawing behind this item, if the asset actually exists. Missing art is
     /// the normal state during exploration, so this is an `Optional`, not an error.
@@ -43,68 +81,101 @@ enum ItemCatalog {
                        imageName: "bear",
                        mergesInto: "teddy-big",
                        scale: 1.0,
-                       placeholderColor: SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1),
+                       carry: .hand),
         ItemDefinition(id: "teddy-big",
                        name: "Big Teddy",
                        imageName: "big-bear",
                        mergesInto: "teddy-giant",
                        scale: 1.28,
-                       placeholderColor: SKColor(red: 0.76, green: 0.48, blue: 0.26, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.76, green: 0.48, blue: 0.26, alpha: 1),
+                       carry: .hand),
         ItemDefinition(id: "teddy-giant",
                        name: "Giant Teddy",
                        imageName: "big-bear",
                        mergesInto: nil,
                        scale: 1.6,
-                       placeholderColor: SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1),
+                       carry: .hand),
 
         ItemDefinition(id: "bow",
                        name: "Bow",
                        imageName: "bow",
                        mergesInto: "bow-fancy",
                        scale: 1.0,
-                       placeholderColor: SKColor(red: 0.95, green: 0.62, blue: 0.76, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.95, green: 0.62, blue: 0.76, alpha: 1),
+                       carry: .head),
         ItemDefinition(id: "bow-fancy",
                        name: "Fancy Bow",
                        imageName: "fancy-bow",
                        mergesInto: "tiara",
                        scale: 1.28,
-                       placeholderColor: SKColor(red: 0.85, green: 0.42, blue: 0.62, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.85, green: 0.42, blue: 0.62, alpha: 1),
+                       carry: .head),
         ItemDefinition(id: "tiara",
                        name: "Tiara",
                        imageName: "tiara",
                        mergesInto: "crown",
                        scale: 1.6,
-                       placeholderColor: SKColor(red: 0.95, green: 0.82, blue: 0.35, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.95, green: 0.82, blue: 0.35, alpha: 1),
+                       carry: .head),
         ItemDefinition(id: "crown",
                        name: "Crown",
                        imageName: "crown",
                        mergesInto: nil,
                        scale: 2.0,
-                       placeholderColor: SKColor(red: 0.2, green: 1.0, blue: 1.0, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.2, green: 1.0, blue: 1.0, alpha: 1),
+                       carry: .head),
         ItemDefinition(id: "cupcake",
                        name: "Cupcake",
                        imageName: "cupcake",
                        mergesInto: "cake",
                        scale: 1.0,
-                       placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1),
+                       carry: .hand),
         ItemDefinition(id: "cake",
                        name: "Cake",
                        imageName: "cake",
                        mergesInto: "cake-giant",
                        scale: 1.28,
-                       placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1),
+                       carry: .hand),
         ItemDefinition(id: "cake-giant",
                        name: "Giant Cake",
                        imageName: "cake-giant",
                        mergesInto: "wedding-cake",
                        scale: 1.6,
-                       placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1)),
+                       placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1),
+                       carry: .hand),
         ItemDefinition(id: "wedding-cake",
                        name: "Wedding Cake",
                        imageName: "cake-gianter",
                        mergesInto: nil,
                        scale: 2.0,
-                       placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1)),
+                       placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
+                       carry: .hand),
+
+        ItemDefinition(id: "dress",
+                       name: "Dress",
+                       imageName: "dress",
+                       mergesInto: "party-dress",
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.62, green: 0.78, blue: 0.94, alpha: 1),
+                       carry: .body),
+        ItemDefinition(id: "party-dress",
+                       name: "Party Dress",
+                       imageName: "party-dress",
+                       mergesInto: "ball-gown",
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.48, green: 0.60, blue: 0.90, alpha: 1),
+                       carry: .body),
+        ItemDefinition(id: "ball-gown",
+                       name: "Ball Gown",
+                       imageName: "ball-gown",
+                       mergesInto: nil,
+                       scale: 1.6,
+                       placeholderColor: SKColor(red: 0.40, green: 0.36, blue: 0.78, alpha: 1),
+                       carry: .body),
     ]
 
     /// The bottom of every chain: the items nothing else merges into. These are

@@ -46,8 +46,13 @@ final class GameScene: SKScene {
     private let roomNode = SKNode()
     /// Placeholder furniture. Rebuilt whenever the scene resizes.
     private let furnitureNode = SKNode()
-    /// The character. A persistent container so it keeps its own state across resizes.
+    /// The character. A persistent container so it keeps its own state across
+    /// resizes — and so carried items have something to be children of.
     private let characterNode = SKNode()
+    /// The character's own drawing and name tag, rebuilt on every layout.
+    /// Held apart from `characterNode` so that whatever they are carrying — which
+    /// lives alongside it — is not wiped out every time they are redrawn.
+    private let characterBodyNode = SKNode()
     /// The Stuff area panel and its button. Rebuilt whenever the scene resizes.
     private let stuffNode = SKNode()
     /// The loose items, in the Stuff area or placed in the room. They draw above
@@ -97,14 +102,17 @@ final class GameScene: SKScene {
     /// Where the character stands, as a fraction of `roomRect`, so a resize or
     /// rotation keeps it in the same relative spot instead of resetting it.
     private var characterAnchor = CGPoint(x: 0.5, y: 0.10)
-    /// The piece the character is currently using, if any. While set, her position
-    /// comes from that piece rather than from `characterAnchor`.
+    /// The piece the character is currently using, if any. While set, their
+    /// position comes from that piece rather than from `characterAnchor`.
     private var characterUsing: FurnitureKind?
     /// The character's bounds relative to its own origin (its feet), used for clamping.
     private var characterLocalFrame: CGRect = .zero
-    /// Who you are playing as. Everything about how she draws comes from here,
-    /// so switching characters is this one assignment plus a relayout.
+    /// Who you are playing as. Everything about how the character draws comes
+    /// from here, so switching is this one assignment plus a relayout.
     private var character = CharacterCatalog.starting
+    /// How tall the character currently draws. Carry points are fractions of
+    /// this, so it is the one number that turns a `CarryPoint` into a position.
+    private var characterHeight: CGFloat = 0
 
     /// What the current drag is moving.
     private enum DragSubject {
@@ -126,6 +134,7 @@ final class GameScene: SKScene {
         addChild(roomNode)
         addChild(furnitureNode)
         addChild(characterNode)
+        characterNode.addChild(characterBodyNode)
         addChild(stuffNode)
         addChild(itemsNode)
         addChild(sheetNode)
@@ -309,12 +318,12 @@ final class GameScene: SKScene {
         furniturePieces.first { $0.kind == kind }
     }
 
-    /// Where the character's origin (her feet) goes when she uses a piece.
+    /// Where the character's origin (their feet) goes when they use a piece.
     private func seatPosition(for piece: FurniturePiece) -> CGPoint {
         let rect = piece.rect
         switch piece.kind {
         case .bed:
-            // Lying across the bed. She is rotated 90°, so her body extends left from here.
+            // Lying across the bed. Rotated 90°, so the body extends left from here.
             return CGPoint(x: rect.maxX - rect.width * 0.08, y: rect.midY)
         case .chair, .table:
             return CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.10)
@@ -557,10 +566,14 @@ final class GameScene: SKScene {
 
     private func refreshStuffCount() {
         let onShelf = items.filter { $0.location == .stuff }.count
-        let inRoom = items.count - onShelf
+        let carried = items.filter { $0.location.carryStyle != nil }.count
+        let inRoom = items.count - onShelf - carried
         var text = onShelf == 1 ? "1 item" : "\(onShelf) items"
         if inRoom > 0 {
             text += " · \(inRoom) in the room"
+        }
+        if carried > 0 {
+            text += " · \(carried) on \(character.name)"
         }
         stuffCountLabel?.text = text
     }
@@ -606,6 +619,7 @@ final class GameScene: SKScene {
         }
         highlightMergeTarget(nil)
         highlightTrash(false)
+        highlightCharacter(false)
 
         for item in items {
             guard let node = itemNodes[item.id] else { continue }
@@ -745,11 +759,25 @@ final class GameScene: SKScene {
 
     // MARK: - Items
 
-    /// Where an item currently lives. Items start in the Stuff area and can be
-    /// carried into the Bedroom, where they become part of the dollhouse.
-    private enum ItemLocation {
+    /// Where an item currently lives. Items start in the Stuff area, can be
+    /// carried into the Bedroom, where they become part of the dollhouse, and can
+    /// end up on the character themselves — worn or held.
+    ///
+    /// The first two are places in the scene; the third is a place on a *body*,
+    /// which is why it carries the style rather than a rect. Everything that
+    /// asks "which area is this in" therefore has to answer for a third case
+    /// that has no area at all.
+    private enum ItemLocation: Equatable {
         case stuff
         case room
+        case carried(CarryStyle)
+
+        /// How this item is being carried, if it is. The common shorthand, since
+        /// most of the scene only cares whether an item is on the character.
+        var carryStyle: CarryStyle? {
+            if case .carried(let style) = self { return style }
+            return nil
+        }
     }
 
     /// One loose object. Its position is stored as a fraction of whichever area
@@ -803,22 +831,36 @@ final class GameScene: SKScene {
 
     /// The size one item draws at. Items are dealt out small enough to fit the
     /// shelf and shown larger once they are in the room, which is the point of
-    /// carrying one in there.
+    /// carrying one in there. On the character they are sized by the character
+    /// instead: a hat is however big that character says a hat is.
     private func baseSize(in location: ItemLocation) -> CGSize {
         switch location {
         case .stuff: return itemBaseSize
         case .room: return roomItemBaseSize
+        case .carried(let style):
+            // Nearly square, unlike the shelf's wide box: a carry point says how
+            // *tall* the thing is on the body, and a 3:2 box would have a Dress
+            // placeholder half again as wide as the character wearing it.
+            let height = characterHeight * character.carryPoint(for: style).size
+            return CGSize(width: height * 1.2, height: height)
         }
     }
 
     private func itemSize(for definition: ItemDefinition, in location: ItemLocation) -> CGSize {
         let base = baseSize(in: location)
-        return CGSize(width: base.width * definition.scale,
-                      height: base.height * definition.scale)
+        // Loose items take their merge level at face value. A carried one takes
+        // the square root of it: a Crown should read as grander than a Bow
+        // without being twice the size of the head it is sitting on.
+        let scale = location.carryStyle == nil ? definition.scale : sqrt(definition.scale)
+        return CGSize(width: base.width * scale, height: base.height * scale)
     }
 
     private func layoutItems() {
-        itemsNode.removeAllChildren()
+        // Not `itemsNode.removeAllChildren()`: carried items are children of the
+        // character, so the nodes have to be dropped by hand wherever they hang.
+        for node in itemNodes.values {
+            node.removeFromParent()
+        }
         itemNodes = [:]
         for item in items {
             addItemNode(for: item)
@@ -826,19 +868,34 @@ final class GameScene: SKScene {
         refreshItemDepths()
     }
 
+    /// Adds the node for one item under whatever it currently belongs to. A
+    /// carried item goes under the character, which is what makes it walk, sit
+    /// and lie down with them for free.
     @discardableResult
     private func addItemNode(for item: Item) -> SKNode {
         let node = makeItemNode(for: item)
         itemNodes[item.id] = node
-        itemsNode.addChild(node)
+        if item.location.carryStyle == nil {
+            itemsNode.addChild(node)
+        } else {
+            characterNode.addChild(node)
+        }
         return node
     }
 
     /// Draw order follows `items`, so moving an item to the end of the
-    /// array is what brings it to the front.
+    /// array is what brings it to the front. A carried item is not in that
+    /// running order at all — it draws relative to the character it is on, and
+    /// the only question is whether it sits in front of them or behind.
     private func refreshItemDepths() {
         for (index, item) in items.enumerated() {
-            itemNodes[item.id]?.zPosition = CGFloat(index)
+            guard let node = itemNodes[item.id] else { continue }
+            if let style = item.location.carryStyle {
+                node.zPosition = character.carryPoint(for: style).inFront
+                    ? style.depth : -style.depth
+            } else {
+                node.zPosition = CGFloat(index)
+            }
         }
     }
 
@@ -850,7 +907,9 @@ final class GameScene: SKScene {
     /// level says it should be. Measured rather than taken from the node so a
     /// name caption hanging below it does not count as part of the item.
     private func itemFrame(for item: Item) -> CGRect? {
-        guard let position = itemNodes[item.id]?.position else { return nil }
+        guard let node = itemNodes[item.id] else { return nil }
+        // A carried item's position is in the character's space, not the scene's.
+        let position = node.parent?.convert(node.position, to: self) ?? node.position
         let size = itemSize(for: item.definition, in: item.location)
         return CGRect(x: position.x - size.width / 2, y: position.y - size.height / 2,
                       width: size.width, height: size.height)
@@ -867,6 +926,89 @@ final class GameScene: SKScene {
             }
         }
         return nil
+    }
+
+    // MARK: - Carrying
+
+    /// The carry point a dropped item would take, if any.
+    ///
+    /// Two things have to be true: the item has to be a kind of thing that can go
+    /// on a body at all, and it has to be dropped across enough of one. An item
+    /// with no carry style is simply put down, so a Cake dropped on the character
+    /// lands beside them rather than being worn as a hat.
+    private func carryTarget(for item: Item) -> CarryStyle? {
+        guard let style = item.definition.carry,
+              let frame = itemFrame(for: item) else { return nil }
+
+        let body = characterSceneFrame()
+        let intersection = frame.intersection(body)
+        guard !intersection.isNull else { return nil }
+
+        let overlap = intersection.width * intersection.height
+        let smaller = min(frame.width * frame.height, body.width * body.height)
+        // The same "a quarter of the smaller of the two" bargain that furniture
+        // and merging strike, nudged up: brushing past should not undress anyone.
+        guard overlap >= smaller * 0.30 else { return nil }
+        return style
+    }
+
+    /// What the character has on at this carry point, if anything.
+    private func carriedItem(style: CarryStyle) -> Item? {
+        items.first { $0.location == .carried(style) }
+    }
+
+    /// Puts an item on the character. It becomes a child of them, so it walks,
+    /// sits and lies down with them — which is the whole reason carrying is worth
+    /// having rather than just parking things nearby.
+    private func attach(id: Int, style: CarryStyle) {
+        // One thing per carry point: a second Bow replaces the first. The one
+        // coming off is put down beside them rather than vanishing, so a swap
+        // never loses anything.
+        if let displaced = carriedItem(style: style), displaced.id != id {
+            let aside = itemSize(for: displaced.definition, in: .room)
+            putDown(id: displaced.id,
+                    offset: CGPoint(x: -aside.width, y: -characterHeight * 0.25))
+        }
+
+        guard let index = itemIndex(id: id) else { return }
+        itemNodes[id]?.removeFromParent()
+        itemNodes[id] = nil
+        items[index].location = .carried(style)
+        addItemNode(for: items[index])
+        refreshItemDepths()
+        refreshStuffCount()
+        // Taking an item off the shelf can let it re-split, which rebuilds every
+        // node — so the one to animate is looked up after that, not held onto.
+        refreshStuffDensity()
+
+        guard let node = itemNodes[id] else { return }
+        node.setScale(0.6)
+        node.run(.sequence([.scale(to: 1.14, duration: 0.10),
+                            .scale(to: 1.0, duration: 0.08)]))
+    }
+
+    /// Takes a carried item off and stands it on the floor of the room, where it
+    /// was. `offset` shifts it clear of whatever is replacing it.
+    @discardableResult
+    private func putDown(id: Int, offset: CGPoint = .zero) -> SKNode? {
+        guard let index = itemIndex(id: id),
+              items[index].location.carryStyle != nil,
+              let node = itemNodes[id] else { return itemNodes[id] }
+
+        let scenePoint = node.parent?.convert(node.position, to: self) ?? node.position
+        node.removeFromParent()
+        itemNodes[id] = nil
+
+        let size = itemSize(for: items[index].definition, in: .room)
+        let resting = clampedItemPosition(CGPoint(x: scenePoint.x + offset.x,
+                                                  y: scenePoint.y + offset.y),
+                                          size: size, in: .room)
+        items[index].location = .room
+        items[index].anchor = itemAnchor(for: resting, in: .room)
+        let fresh = addItemNode(for: items[index])
+        refreshItemDepths()
+        refreshStuffCount()
+        return fresh
     }
 
     // MARK: - Merging
@@ -921,12 +1063,21 @@ final class GameScene: SKScene {
     private func settleItem(id: Int) {
         highlightMergeTarget(nil)
         highlightTrash(false)
+        highlightCharacter(false)
         guard let index = itemIndex(id: id), var node = itemNodes[id] else { return }
         node.removeAllActions()
 
         // Dropped on the Trash button: this one item goes, and nothing else.
         if isOverTrash(node.position) {
             discardItem(id: id)
+            return
+        }
+
+        // Dropped on the character: they put it on. This is checked before the
+        // room, because the character is standing in the room and dropping a Bow
+        // on their head should not just leave it lying on the floor behind them.
+        if let style = carryTarget(for: items[index]) {
+            attach(id: id, style: style)
             return
         }
 
@@ -986,8 +1137,9 @@ final class GameScene: SKScene {
         node.addChild(makeItemArtwork(for: item.definition, size: boxSize))
 
         // Artwork carries no name of its own, and two levels of the same chain
-        // differ only in size. A caption is what makes a pile readable.
-        if showItemLabels, item.definition.artwork != nil {
+        // differ only in size. A caption is what makes a pile readable — but a
+        // name tag hanging off a hat is clutter, not information.
+        if showItemLabels, item.definition.artwork != nil, item.location.carryStyle == nil {
             node.addChild(makeItemCaption(item.definition.name,
                                           fontSize: max(9, baseSize(in: item.location).height * 0.20),
                                           topY: -boxSize.height / 2))
@@ -1100,14 +1252,24 @@ final class GameScene: SKScene {
         return itemAnchor(for: crowded, in: .stuff)
     }
 
+    /// A carried item has no area of its own — it is somewhere on a body, and
+    /// the body is in the room. The room is the right answer for the one thing
+    /// this is asked for a carried item: where it lands when it is put down.
     private func rect(for location: ItemLocation) -> CGRect {
         switch location {
         case .stuff: return stuffRect
-        case .room: return roomRect
+        case .room, .carried: return roomRect
         }
     }
 
     private func itemPosition(for item: Item) -> CGPoint {
+        // Carried items are children of the character, so their position is in
+        // the character's own space: the origin is their feet.
+        if let style = item.location.carryStyle {
+            let point = character.carryPoint(for: style)
+            return CGPoint(x: point.x * characterHeight, y: point.y * characterHeight)
+        }
+
         let area = rect(for: item.location)
         let position = CGPoint(x: area.minX + item.anchor.x * area.width,
                                y: area.minY + item.anchor.y * area.height)
@@ -1163,16 +1325,20 @@ final class GameScene: SKScene {
     /// Builds the character, sized relative to the room and to whoever you are
     /// currently playing as. The container's position is the character's feet.
     private func layoutCharacter() {
-        characterNode.removeAllChildren()
+        // Only the body is rebuilt. Anything the character is carrying is a
+        // sibling of it, and is redrawn separately at the end — otherwise
+        // switching character would drop everything they were holding.
+        characterBodyNode.removeAllChildren()
 
-        let height = roomRect.height * 0.30 * character.scale
+        characterHeight = roomRect.height * 0.30 * character.scale
+        let height = characterHeight
 
         // Build at the origin, unrotated, so the accumulated frame comes out
         // in local coordinates.
         characterNode.position = .zero
         characterNode.zRotation = 0
 
-        characterNode.addChild(makeCharacterArtwork(for: character, height: height))
+        characterBodyNode.addChild(makeCharacterArtwork(for: character, height: height))
 
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
         label.text = characterUsing?.characterLabel ?? character.name
@@ -1181,9 +1347,12 @@ final class GameScene: SKScene {
         label.verticalAlignmentMode = .bottom
         label.horizontalAlignmentMode = .center
         label.position = CGPoint(x: 0, y: height + height * 0.06)
-        characterNode.addChild(label)
+        characterBodyNode.addChild(label)
 
-        characterLocalFrame = characterNode.calculateAccumulatedFrame()
+        // Measured before the highlight is added, so the ring drawn around the
+        // character does not itself count as part of them.
+        characterLocalFrame = characterBodyNode.calculateAccumulatedFrame()
+        characterBodyNode.addChild(makeCharacterHighlight())
 
         if let kind = characterUsing, let piece = piece(for: kind) {
             characterNode.zRotation = kind.characterRotation
@@ -1191,11 +1360,66 @@ final class GameScene: SKScene {
         } else {
             characterNode.position = clampedCharacterPosition(scenePosition(for: characterAnchor))
         }
+
+        relayoutCarriedItems()
+    }
+
+    /// Redraws whatever the character is carrying. Their size and their carry
+    /// points both belong to whoever they are, so a resize or a change of
+    /// character moves the hat as well as the head.
+    private func relayoutCarriedItems() {
+        let carried = items.filter { $0.location.carryStyle != nil }
+        guard !carried.isEmpty else { return }
+        for item in carried {
+            itemNodes[item.id]?.removeFromParent()
+            itemNodes[item.id] = nil
+            addItemNode(for: item)
+        }
+        refreshItemDepths()
+    }
+
+    /// The ring that says "let go and they will take this". Hidden until a
+    /// carryable item is dragged over them.
+    private func makeCharacterHighlight() -> SKNode {
+        let padding = max(4, characterHeight * 0.04)
+        let box = characterLocalFrame.insetBy(dx: -padding, dy: -padding)
+        let highlight = SKShapeNode(rect: box, cornerRadius: padding * 2)
+        highlight.name = Self.characterHighlightName
+        highlight.fillColor = .clear
+        highlight.strokeColor = Self.itemMergeStroke
+        highlight.lineWidth = 5
+        highlight.isHidden = true
+        highlight.zPosition = -0.5
+        return highlight
+    }
+
+    private static let characterHighlightName = "carry-highlight"
+
+    private func highlightCharacter(_ on: Bool) {
+        characterBodyNode.childNode(withName: Self.characterHighlightName)?.isHidden = !on
+    }
+
+    /// The character's own box in scene coordinates: their drawing and name tag,
+    /// but not whatever they are carrying — a held Giant Teddy would otherwise
+    /// count as part of them and drag the whole figure onto the bed with it.
+    private func characterSceneFrame() -> CGRect {
+        let local = characterLocalFrame
+        let corners = [CGPoint(x: local.minX, y: local.minY),
+                       CGPoint(x: local.maxX, y: local.minY),
+                       CGPoint(x: local.maxX, y: local.maxY),
+                       CGPoint(x: local.minX, y: local.maxY)]
+            .map { characterNode.convert($0, to: self) }
+
+        var box = CGRect(origin: corners[0], size: .zero)
+        for corner in corners.dropFirst() {
+            box = box.union(CGRect(origin: corner, size: .zero))
+        }
+        return box
     }
 
     /// The current character's drawing, standing on the origin. Falls back to a
-    /// stick figure in her own colours if the artwork is missing, the same way
-    /// items do — which is how a character can be picked before she is drawn.
+    /// stick figure in their own colours if the artwork is missing, the same way
+    /// items do — which is how a character can be picked before being drawn.
     private func makeCharacterArtwork(for definition: CharacterDefinition,
                                       height: CGFloat) -> SKNode {
         if let image = definition.artwork {
@@ -1275,14 +1499,14 @@ final class GameScene: SKScene {
             return
         }
 
-        if characterNode.calculateAccumulatedFrame().contains(location) {
+        if characterSceneFrame().contains(location) {
             beginCharacterDrag(touch: touch, at: location)
         }
     }
 
     private func beginCharacterDrag(touch: UITouch, at location: CGPoint) {
         if characterUsing != nil {
-            // Stand her up where she is, then let the drag carry on from there.
+            // Stand them up where they are, then let the drag carry on from there.
             characterAnchor = characterAnchor(for: characterNode.position)
             characterUsing = nil
             layoutCharacter()
@@ -1296,6 +1520,13 @@ final class GameScene: SKScene {
 
     private func beginItemDrag(_ item: Item, node: SKNode,
                                     touch: UITouch, at location: CGPoint) {
+        var node = node
+        // Taking something off is just picking it up: it leaves the character,
+        // is redrawn at room size and carries on under the finger as a loose item.
+        if item.location.carryStyle != nil, let detached = putDown(id: item.id) {
+            node = detached
+        }
+
         // Bring it to the front so it is not dragged underneath its neighbours.
         if let index = itemIndex(id: item.id) {
             let moved = items.remove(at: index)
@@ -1331,7 +1562,9 @@ final class GameScene: SKScene {
             let carriedTo = self.location(forDropAt: node.position)
             items[index].location = carriedTo
             items[index].anchor = itemAnchor(for: node.position, in: carriedTo)
-            highlightMergeTarget(mergeTarget(for: items[index])?.id)
+            let carry = carryTarget(for: items[index])
+            highlightCharacter(carry != nil)
+            highlightMergeTarget(carry == nil ? mergeTarget(for: items[index])?.id : nil)
             highlightTrash(isOverTrash(node.position))
         }
     }
@@ -1361,12 +1594,12 @@ final class GameScene: SKScene {
 
     /// Which usable piece the character is currently over, if any.
     ///
-    /// This compares how much of her *overlaps* each piece rather than testing a
-    /// single point. Her origin is at her feet, so a point test only matched when
-    /// she was grabbed low down — dragging her body onto the bed left her feet
+    /// This compares how much of them *overlaps* each piece rather than testing a
+    /// single point. The origin is at the feet, so a point test only matched when
+    /// grabbed low down — dragging the body onto the bed left the feet
     /// below it and nothing happened.
     private func dropTarget() -> FurnitureKind? {
-        let characterFrame = characterNode.calculateAccumulatedFrame()
+        let characterFrame = characterSceneFrame()
         let characterArea = characterFrame.width * characterFrame.height
         var best: (kind: FurnitureKind, overlap: CGFloat)?
 
@@ -1629,7 +1862,12 @@ final class GameScene: SKScene {
             note.text = definition.missingArtworkNote
             note.fontColor = Self.sheetMissingArt
         } else {
-            note.text = definition.mergesInto == nil ? "top of the chain" : "merges in pairs"
+            // Both halves of what an item is: where it goes on a character, and
+            // where it goes in its chain.
+            var parts: [String] = []
+            if let carry = definition.carry { parts.append(carry.note) }
+            parts.append(definition.mergesInto == nil ? "top of the chain" : "merges in pairs")
+            note.text = parts.joined(separator: " · ")
             note.fontColor = SKColor(white: 0.55, alpha: 1)
         }
         shrinkToFit(note, width: cell.width * 0.92)
@@ -1664,8 +1902,8 @@ final class GameScene: SKScene {
     // MARK: - Character picker
 
     /// Who you can be. The same bargain as the Catalog: everyone is listed
-    /// whether or not she has been drawn yet, and picking one that has no
-    /// artwork puts her stick figure in the room rather than nothing at all.
+    /// whether or not they have been drawn yet, and picking one that has no
+    /// artwork puts their stick figure in the room rather than nothing at all.
 
     /// A grid of everyone in the catalog, the current one ringed.
     private func layoutCharacterCells(in body: CGRect) {
@@ -1689,8 +1927,8 @@ final class GameScene: SKScene {
         }
     }
 
-    /// One entry: the figure you would actually get, her name, and — when there
-    /// is no drawing yet — the filename that would give her one.
+    /// One entry: the figure you would actually get, their name, and — when there
+    /// is no drawing yet — the filename that would give them one.
     private func makeCharacterCell(for definition: CharacterDefinition, in cell: CGRect,
                                    relativeScale: CGFloat) -> SKNode {
         let node = SKNode()
@@ -1722,20 +1960,19 @@ final class GameScene: SKScene {
         shrinkToFit(name, width: cell.width * 0.92)
         node.addChild(name)
 
-        let note = SKLabelNode(fontNamed: "AvenirNext-Medium")
-        note.fontSize = nameSize * 0.78
-        note.verticalAlignmentMode = .center
-        note.horizontalAlignmentMode = .center
-        note.position = CGPoint(x: cell.midX, y: cell.minY + cell.height * 0.09)
+        // Only the missing art gets a caption. A drawn character needs no note:
+        // the heading already says a tap picks one, and the ring says which is on.
         if definition.artwork == nil {
+            let note = SKLabelNode(fontNamed: "AvenirNext-Medium")
             note.text = definition.missingArtworkNote
+            note.fontSize = nameSize * 0.78
             note.fontColor = Self.sheetMissingArt
-        } else {
-            note.text = isCurrent ? "in the room now" : "tap to be her"
-            note.fontColor = SKColor(white: 0.55, alpha: 1)
+            note.verticalAlignmentMode = .center
+            note.horizontalAlignmentMode = .center
+            note.position = CGPoint(x: cell.midX, y: cell.minY + cell.height * 0.09)
+            shrinkToFit(note, width: cell.width * 0.92)
+            node.addChild(note)
         }
-        shrinkToFit(note, width: cell.width * 0.92)
-        node.addChild(note)
 
         if isCurrent {
             let badge = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1755,8 +1992,8 @@ final class GameScene: SKScene {
     private static let characterSelectedStroke =
         SKColor(red: 1.0, green: 0.86, blue: 0.42, alpha: 1)
 
-    /// Switches who you are playing as, keeping where she was standing and
-    /// whatever she was using — you are swapping the drawing, not restarting.
+    /// Switches who you are playing as, keeping where they were standing and
+    /// whatever they were using — you are swapping the drawing, not restarting.
     private func becomeCharacter(_ definition: CharacterDefinition) {
         guard definition.id != character.id else { return }
         character = definition
@@ -1767,8 +2004,8 @@ final class GameScene: SKScene {
                                      .scale(to: 1.0, duration: 0.12)]))
     }
 
-    /// On release, snap the character onto whichever piece she was dropped on.
-    /// Otherwise she simply stays where she was put.
+    /// On release, snap the character onto whichever piece they were dropped on.
+    /// Otherwise they simply stay where they were put.
     private func settleCharacter() {
         highlightFurniture(nil)
         guard let kind = dropTarget() else { return }

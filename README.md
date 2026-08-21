@@ -2,7 +2,8 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 14 — Several Merge Chains.**
+**Current milestone: 14 — Several Merge Chains**, plus a first pass at carrying:
+the character can wear and hold what you merge.
 
 ## Explore tools
 
@@ -13,7 +14,7 @@ game would have any of it:
 | --- | --- |
 | **Get Stuff** | Deals one random level-one item onto the shelf. |
 | **Catalog** | Every merge chain on one sheet: the artwork that exists, the filename of the artwork that does not, and how many of each are loose. Tap an entry to deal one out — no merging up to it first. |
-| **Characters** | Everyone you can be, on the same kind of sheet. Tap one to become her; she keeps where she was standing and whatever she was using. |
+| **Characters** | Everyone you can be, on the same kind of sheet. Tap one to switch to them; they keep where the character was standing and whatever it was using. |
 | **Tidy Up** | Re-lays the shelf out in catalog order, so a shoved-around pile becomes readable again. |
 | **Merge All** | Merges every pair it can, repeatedly, until nothing else combines. The quick way to see the top of a chain. |
 | **Labels** | Toggles the name tag under each item. |
@@ -22,16 +23,49 @@ game would have any of it:
 The shelf deals items into slots rather than scattering them, and splits itself
 into more rows as it fills, so `Get Stuff` never buries anything.
 
+## Carrying things
+
+Drag an item onto the character and they put it on: a Bow or a Crown goes on the
+head, a Teddy or a Cake into a hand, a Dress onto the body. A carried item becomes
+a child of the character, so it walks with them, sits with them, and lies down
+with them on the bed. Drag it off again to take it off. Only one thing fits each
+carry point — a second Bow replaces the first, and the one coming off is set down
+beside them rather than lost.
+
+The awkward part of this is that *how* a thing is worn varies, so it is split in
+two halves that never have to know about each other:
+
+- **The item says what kind of thing it is.** `carry: .head` in `ItemCatalog` means
+  "worn on a head", and nothing more. An item with `carry: nil` is one you only
+  ever put down.
+- **The character says where that is on them.** `carryPoints` in
+  `CharacterCatalog` maps a carry style to a `CarryPoint`: how far up, how far
+  across, how big, and in front or behind — all as fractions of that character's
+  drawn height.
+
+That is what makes a fully customizable set of objects tractable. A new item works
+on every character the day it is added, and a new character wears everything
+already in the game. Only the second half genuinely varies: `girl.png` is a small
+figure floating in a large square, so her hat sits at `0.80` of her height, while
+the stick figure fills its frame and wants `0.93`. Anything a character leaves out
+of `carryPoints` falls back to `CarryPoint.standard`, so you tune the one line that
+looks wrong rather than teaching the hat about that character.
+
+Still missing, and worth doing next: nothing is animated, a carry point is a
+single fixed spot rather than a pose, and the character has no reaction to what
+they are holding.
+
 ## Adding content
 
 Both catalogs work the same way, and neither needs the artwork to exist first.
 
 - **A merge chain** is entries in `ItemCatalog.all`, linked by `mergesInto`. The
   bottom of a chain — whatever nothing else merges into — is dealt by `Get Stuff`
-  automatically.
+  automatically. `carry` says where on a character it goes, if anywhere.
 - **A character** is one entry in `CharacterCatalog.all`: a name, the `imageName`
-  the drawing will use, a `scale` relative to the default, and the two colours her
-  stick figure is drawn in until then.
+  the drawing will use, a `scale` relative to the default, the two colours their
+  stick figure is drawn in until then, and any `carryPoints` the defaults get
+  wrong for them.
 
 Anything with no artwork yet draws as a placeholder and captions itself with the
 filename that would replace it. Drop `<imageName>.png` into the target's

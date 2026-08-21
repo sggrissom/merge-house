@@ -176,7 +176,75 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.40, green: 0.36, blue: 0.78, alpha: 1),
                        carry: .body),
+
+        ItemDefinition(id: "leaf",
+                       name: "Leaf",
+                       imageName: "leaf",
+                       mergesInto: "sapling",
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.58, green: 0.82, blue: 0.44, alpha: 1),
+                       carry: .hand),
+        ItemDefinition(id: "sapling",
+                       name: "Sapling",
+                       imageName: "sapling",
+                       mergesInto: "tree",
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.38, green: 0.68, blue: 0.36, alpha: 1),
+                       carry: .hand),
+        ItemDefinition(id: "tree",
+                       name: "Tree",
+                       imageName: "tree",
+                       mergesInto: nil,
+                       scale: 1.6,
+                       placeholderColor: SKColor(red: 0.22, green: 0.50, blue: 0.28, alpha: 1),
+                       carry: .hand),
+
+        // Three colours of the same thing rather than a chain: nothing merges
+        // into a frosting and a frosting merges into nothing, so each is dealt
+        // out and stays what it is.
+        ItemDefinition(id: "red-frosting",
+                       name: "Red Frosting",
+                       imageName: "red-frosting",
+                       mergesInto: nil,
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.88, green: 0.26, blue: 0.28, alpha: 1),
+                       carry: .hand),
+        ItemDefinition(id: "blue-frosting",
+                       name: "Blue Frosting",
+                       imageName: "blue-frosting",
+                       mergesInto: nil,
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.32, green: 0.48, blue: 0.88, alpha: 1),
+                       carry: .hand),
+        ItemDefinition(id: "pink-frosting",
+                       name: "Pink Frosting",
+                       imageName: "pink-frosting",
+                       mergesInto: nil,
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.96, green: 0.55, blue: 0.72, alpha: 1),
+                       carry: .hand),
+
+        ItemDefinition(id: "headband",
+                       name: "Headband",
+                       imageName: "headband",
+                       mergesInto: nil,
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.92, green: 0.40, blue: 0.62, alpha: 1),
+                       carry: .head),
+        ItemDefinition(id: "lona-misa",
+                       name: "Lona Misa",
+                       imageName: "lona-misa",
+                       mergesInto: nil,
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.72, green: 0.62, blue: 0.38, alpha: 1),
+                       carry: .hand),
     ]
+
+    /// The biggest `scale` anything in the catalog has. A view with a fixed
+    /// amount of room per item — the Stuff shelf — fits the whole range into that
+    /// room rather than letting the top of a chain spill over its neighbours, so
+    /// it needs to know where the range ends.
+    static let maxScale: CGFloat = all.map { $0.scale }.max() ?? 1
 
     /// The bottom of every chain: the items nothing else merges into. These are
     /// what `Get Stuff` hands out, so a new chain becomes reachable simply by
@@ -217,6 +285,11 @@ enum ItemCatalog {
         return definition(id: nextID)
     }
 
+    /// Two entries with the same id is a slip while editing the list, not a
+    /// state the game has to have an opinion about — the first one wins. It used
+    /// to be `uniqueKeysWithValues`, which trapped, so a mistyped id took the app
+    /// down on launch with nothing to read. A catalog you can edit freely is the
+    /// whole premise here, and that includes editing it wrong for a minute.
     private static let byID: [String: ItemDefinition] =
-        Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 }

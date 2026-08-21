@@ -895,13 +895,73 @@ final class GameScene: SKScene {
         }
     }
 
+    /// How much bigger this item's merge level makes it, where it currently is.
+    /// The three places an item can be have three different amounts of room, so
+    /// they read the same range of levels at three different strengths.
+    private func levelScale(for definition: ItemDefinition, in location: ItemLocation) -> CGFloat {
+        switch location {
+        case .room:
+            // The room has the space to take a level at face value, and showing
+            // one off at full size is the point of carrying it in there.
+            return definition.scale
+        case .stuff:
+            // The shelf gives every item the same slot, so the full range does
+            // not fit in one: a Crown drawn twice a Bow simply covers whatever is
+            // next to it, and the fuller the shelf the worse that gets. Levels
+            // are squeezed into the slot instead — still ordered, still legible,
+            // never spilling over a neighbour.
+            return sqrt(definition.scale / ItemCatalog.maxScale)
+        case .carried:
+            // The square root again, for the same reason but against a head
+            // rather than a slot: a Crown should read as grander than a Bow
+            // without being twice the size of the head it is sitting on.
+            return sqrt(definition.scale)
+        }
+    }
+
+    /// The size one item draws at — which is also its box: what a finger can
+    /// grab, what the merge ring is drawn around, and what is kept inside the room.
+    ///
+    /// The nominal box is a fixed 3:2 that knows nothing about the drawing going
+    /// in it. Fitting a drawing inside that box would leave its apparent size
+    /// decided by its shape — a wide Tiara coming out shorter than a square Bear
+    /// of the same level, with most of its box empty either side. So the box is
+    /// reshaped to the drawing's own proportions at the same area instead: same
+    /// level, same amount of item on screen, whatever shape the item is.
     private func itemSize(for definition: ItemDefinition, in location: ItemLocation) -> CGSize {
         let base = baseSize(in: location)
-        // Loose items take their merge level at face value. A carried one takes
-        // the square root of it: a Crown should read as grander than a Bow
-        // without being twice the size of the head it is sitting on.
-        let scale = location.carryStyle == nil ? definition.scale : sqrt(definition.scale)
-        return CGSize(width: base.width * scale, height: base.height * scale)
+        let scale = levelScale(for: definition, in: location)
+        var size = CGSize(width: base.width * scale, height: base.height * scale)
+
+        // A square for anything not drawn yet, so a placeholder takes up as much
+        // room as the drawing that will replace it and swapping one in changes
+        // the picture rather than the layout.
+        size = shaped(size, toAspect: Artwork.named(definition.imageName)?.aspect ?? 1)
+
+        if location == .stuff {
+            // A backstop for artwork far wider or taller than anything here now:
+            // reshaping keeps the area right, and this keeps the shape in its slot.
+            size = contained(size, in: CGSize(width: itemSlotSize.width * 0.94,
+                                              height: itemSlotSize.height * 0.70))
+        }
+        return size
+    }
+
+    /// A box of the same area, reshaped to a drawing's proportions. Two items of
+    /// the same level then put the same amount of ink on screen whether they are
+    /// wide, tall or square — which fitting them into a shared box does not,
+    /// since a wide drawing would only ever touch its sides.
+    private func shaped(_ size: CGSize, toAspect aspect: CGFloat) -> CGSize {
+        guard aspect > 0, size.width > 0, size.height > 0 else { return size }
+        let height = sqrt(size.width * size.height / aspect)
+        return CGSize(width: height * aspect, height: height)
+    }
+
+    /// The same box shrunk, if it has to be, to fit inside `limit`.
+    private func contained(_ size: CGSize, in limit: CGSize) -> CGSize {
+        guard limit.width > 0, limit.height > 0, size.width > 0, size.height > 0 else { return size }
+        let fit = min(1, min(limit.width / size.width, limit.height / size.height))
+        return CGSize(width: size.width * fit, height: size.height * fit)
     }
 
     private func layoutItems() {
@@ -1236,12 +1296,11 @@ final class GameScene: SKScene {
     /// Missing artwork is a normal state, not an error: anything without a drawing
     /// yet falls back to a labeled box of the right size.
     private func makeItemArtwork(for definition: ItemDefinition, size boxSize: CGSize) -> SKNode {
-        if let image = definition.artwork {
-            let sprite = SKSpriteNode(texture: SKTexture(image: image))
-            let fit = min(boxSize.width / sprite.size.width,
-                          boxSize.height / sprite.size.height)
-            sprite.size = CGSize(width: sprite.size.width * fit,
-                                 height: sprite.size.height * fit)
+        if let artwork = Artwork.named(definition.imageName) {
+            let sprite = SKSpriteNode(texture: artwork.texture)
+            // `boxSize` was already shaped to this drawing's proportions, so the
+            // drawing fills it exactly rather than being fitted somewhere inside it.
+            sprite.size = boxSize
             return sprite
         }
 
@@ -1474,10 +1533,12 @@ final class GameScene: SKScene {
     /// items do — which is how a character can be picked before being drawn.
     private func makeCharacterArtwork(for definition: CharacterDefinition,
                                       height: CGFloat) -> SKNode {
-        if let image = definition.artwork {
-            let sprite = SKSpriteNode(texture: SKTexture(image: image))
-            let scale = height / sprite.size.height
-            sprite.size = CGSize(width: sprite.size.width * scale, height: height)
+        if let artwork = Artwork.named(definition.imageName) {
+            let sprite = SKSpriteNode(texture: artwork.texture)
+            // The drawing is trimmed, so `height` is the character's actual
+            // height and the anchor is actually their feet: they stand on the
+            // floor rather than on whatever empty space their file left below them.
+            sprite.size = CGSize(width: height * artwork.aspect, height: height)
             sprite.anchorPoint = CGPoint(x: 0.5, y: 0)
             return sprite
         }
@@ -1871,10 +1932,14 @@ final class GameScene: SKScene {
         let artBox = CGSize(width: cell.width * 0.72 * (0.62 + 0.38 * relativeScale),
                             height: cell.height * 0.50 * (0.62 + 0.38 * relativeScale))
 
-        if let image = definition.artwork {
-            let sprite = SKSpriteNode(texture: SKTexture(image: image))
-            let fit = min(artBox.width / sprite.size.width, artBox.height / sprite.size.height)
-            sprite.size = CGSize(width: sprite.size.width * fit, height: sprite.size.height * fit)
+        if let artwork = Artwork.named(definition.imageName) {
+            let sprite = SKSpriteNode(texture: artwork.texture)
+            // Shaped to the drawing and then held inside the cell, the same
+            // bargain the shelf strikes — so a row of a chain grows by its levels
+            // rather than by how tightly each drawing happens to be cropped.
+            sprite.size = contained(shaped(artBox, toAspect: artwork.aspect),
+                                    in: CGSize(width: cell.width * 0.80,
+                                               height: cell.height * 0.56))
             sprite.position = artCentre
             node.addChild(sprite)
         } else {
@@ -2164,5 +2229,113 @@ final class GameScene: SKScene {
             return (.carried(style), anchor)
         default: return nil
         }
+    }
+}
+
+// MARK: - Artwork
+
+/// A drawing, cropped to the part of its file that is actually drawn on.
+///
+/// Every PNG here is a canvas with the subject floating somewhere inside it, and
+/// how much of the canvas the subject covers is an accident of how the picture
+/// was made rather than anything about the thing it shows. `bear.png` fills 97%
+/// of its height; `tiara.png` fills 42%; `sapling.png` fills 30%. Sizing a
+/// sprite by its file therefore sizes it by that accident — which is why a Tiara
+/// drew *smaller* than the Fancy Bow it merges up from, and why the Girl stood a
+/// third shorter than she was asked to, hovering above the floor with a hit box
+/// twice as wide as she was.
+///
+/// So nothing is sized by its file. Every drawing is cropped to its opaque pixels
+/// and it is that crop the game gives a size to, which makes `scale` in
+/// `ItemCatalog` and a character's height mean what they say whatever the art
+/// happens to do inside its canvas. Trimming is not something new art has to be
+/// put through first — dropping the PNG in is still the whole job.
+struct Artwork {
+    let texture: SKTexture
+    /// The drawn part's width over its height. Boxes are shaped to this so a wide
+    /// thing and a tall thing of the same level read as the same size.
+    let aspect: CGFloat
+
+    /// The trimmed drawing for an asset name, or `nil` if there is no such asset —
+    /// which is the normal state for anything not drawn yet, not an error.
+    /// Cached, because trimming means reading pixels and the answer never changes.
+    static func named(_ name: String?) -> Artwork? {
+        guard let name = name else { return nil }
+        if let known = cache[name] { return known.artwork }
+
+        guard let image = UIImage(named: name) else {
+            cache[name] = Entry(artwork: nil)
+            return nil
+        }
+
+        let whole = SKTexture(image: image)
+        let texture = opaqueRect(of: image).map { SKTexture(rect: $0, in: whole) } ?? whole
+        let size = texture.size()
+        let artwork = Artwork(texture: texture,
+                              aspect: size.height > 0 ? size.width / size.height : 1)
+        cache[name] = Entry(artwork: artwork)
+        return artwork
+    }
+
+    /// A missing asset is cached too, so a catalog entry with no artwork yet does
+    /// not send every redraw back to the bundle looking for it.
+    private struct Entry {
+        let artwork: Artwork?
+    }
+
+    private static var cache: [String: Entry] = [:]
+
+    /// The part of an image that is not fully transparent, in the unit
+    /// coordinates `SKTexture(rect:in:)` wants — origin at the bottom left.
+    /// `nil` means take the whole canvas: either it is already cropped, or it is
+    /// blank, and blowing up nothing to fill a box would be worse than leaving it.
+    ///
+    /// The scan is deliberately coarse. It is deciding where to cut a 2048px
+    /// drawing, so a few pixels of slack are invisible, while reading four
+    /// million of them per asset is not free.
+    private static func opaqueRect(of image: UIImage) -> CGRect? {
+        guard let cgImage = image.cgImage, cgImage.width > 0, cgImage.height > 0 else { return nil }
+
+        let columns = min(cgImage.width, 192)
+        let rows = min(cgImage.height, 192)
+        var pixels = [UInt8](repeating: 0, count: columns * rows * 4)
+
+        let scanned = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress,
+                width: columns, height: rows,
+                bitsPerComponent: 8, bytesPerRow: columns * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            // Averaged down rather than point sampled: a thin edge has to survive
+            // the shrink, or the crop would cut it off.
+            context.interpolationQuality = .high
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: columns, height: rows))
+            return true
+        }
+        guard scanned else { return nil }
+
+        var minColumn = columns, maxColumn = -1
+        var minRow = rows, maxRow = -1
+        for row in 0..<rows {
+            for column in 0..<columns where pixels[(row * columns + column) * 4 + 3] > 0 {
+                minColumn = min(minColumn, column)
+                maxColumn = max(maxColumn, column)
+                minRow = min(minRow, row)
+                maxRow = max(maxRow, row)
+            }
+        }
+        guard maxColumn >= minColumn, maxRow >= minRow else { return nil }
+
+        let width = CGFloat(maxColumn - minColumn + 1) / CGFloat(columns)
+        let height = CGFloat(maxRow - minRow + 1) / CGFloat(rows)
+        guard width < 1 || height < 1 else { return nil }
+
+        // Bitmap rows run down from the top; texture coordinates run up from the
+        // bottom, so the last row scanned is the first row of the crop.
+        return CGRect(x: CGFloat(minColumn) / CGFloat(columns),
+                      y: CGFloat(rows - 1 - maxRow) / CGFloat(rows),
+                      width: width, height: height)
     }
 }

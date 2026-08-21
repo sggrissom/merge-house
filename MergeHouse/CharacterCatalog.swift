@@ -5,10 +5,14 @@ import UIKit
 ///
 /// This is the character's half of the bargain that `CarryStyle` starts. The
 /// item says "I am worn on the head"; this says where the head is *on me*, which
-/// is the part that genuinely varies. `girl.png` is a small figure floating in a
-/// large square, so her hat sits at 0.80 of her height; the stick figure fills
-/// its frame and wants 0.93. Neither of them is wrong, and neither the Bow nor
-/// the game code has to know the difference.
+/// is the part that genuinely varies — a Baby is mostly head, and a hat sits
+/// lower on one than on a grown-up. Neither the Bow nor the game code has to
+/// know the difference.
+///
+/// What does *not* belong here is anything compensating for how a PNG was
+/// cropped. Every drawing is trimmed to its opaque pixels before it is sized
+/// (see `Artwork`), so a character's height is their height and a carry point is
+/// measured against the figure rather than against the empty space around it.
 ///
 /// Everything is a fraction of the character's drawn height — x included — so a
 /// resize, a rotation, or a character with a different `scale` all keep working.
@@ -23,8 +27,9 @@ struct CarryPoint {
     let inFront: Bool
 
     /// What a character gets for any carry point they have not tuned. Measured
-    /// against the placeholder stick figure, which fills its frame the way most
-    /// tightly-cropped artwork does.
+    /// against a figure standing on its own feet and filling its own height,
+    /// which — since every drawing is trimmed before it is sized — is every
+    /// character, artwork or placeholder.
     static func standard(for style: CarryStyle) -> CarryPoint {
         switch style {
         case .head: return CarryPoint(x: 0, y: 0.93, size: 0.24, inFront: true)
@@ -53,8 +58,9 @@ struct CharacterDefinition {
     let skinColor: SKColor
     /// Where carried things sit on this particular character. Anything left out
     /// falls back to `CarryPoint.standard`, so a new character needs no entries
-    /// here at all until a hat lands somewhere silly — then you tune that one
-    /// line rather than teaching the hat about them.
+    /// here at all — and most never will, now that the drawing itself is trimmed.
+    /// If a hat does land somewhere silly on someone, tune that one line rather
+    /// than teaching the hat about them.
     let carryPoints: [CarryStyle: CarryPoint]
 
     /// Where a thing of this kind goes on this character.
@@ -88,11 +94,7 @@ enum CharacterCatalog {
                             scale: 1.0,
                             bodyColor: SKColor(red: 0.90, green: 0.36, blue: 0.55, alpha: 1),
                             skinColor: SKColor(red: 0.98, green: 0.84, blue: 0.72, alpha: 1),
-                            carryPoints: [
-                                .head: CarryPoint(x: 0, y: 0.80, size: 0.22, inFront: true),
-                                .hand: CarryPoint(x: 0.185, y: 0.45, size: 0.20, inFront: true),
-                                .body: CarryPoint(x: 0, y: 0.48, size: 0.30, inFront: true),
-                            ]),
+                            carryPoints: [:]),
         CharacterDefinition(id: "boy",
                             name: "Boy",
                             imageName: "Basic_human_drawing",
@@ -137,6 +139,8 @@ enum CharacterCatalog {
         byID[id]
     }
 
+    /// The first of any duplicate id wins, for the reason `ItemCatalog.byID`
+    /// gives: a slip while editing the list should not be a crash on launch.
     private static let byID: [String: CharacterDefinition] =
-        Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 }

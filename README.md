@@ -46,15 +46,49 @@ two halves that never have to know about each other:
 
 That is what makes a fully customizable set of objects tractable. A new item works
 on every character the day it is added, and a new character wears everything
-already in the game. Only the second half genuinely varies: `girl.png` is a small
-figure floating in a large square, so her hat sits at `0.80` of her height, while
-the stick figure fills its frame and wants `0.93`. Anything a character leaves out
-of `carryPoints` falls back to `CarryPoint.standard`, so you tune the one line that
-looks wrong rather than teaching the hat about that character.
+already in the game. Only the second half genuinely varies — a Baby is mostly
+head, so a hat sits lower on one than on a grown-up. Anything a character leaves
+out of `carryPoints` falls back to `CarryPoint.standard`, so you tune the one line
+that looks wrong rather than teaching the hat about that character. Most
+characters need no entries at all, because a carry point is measured against the
+figure rather than against the empty space around it — see below.
 
 Still missing, and worth doing next: nothing is animated, a carry point is a
 single fixed spot rather than a pose, and the character has no reaction to what
 they are holding.
+
+## How big things are
+
+Two rules, and between them they are the whole answer to why something looks the
+wrong size.
+
+**Nothing is ever sized by its file.** Every PNG here is a canvas with the subject
+floating somewhere inside it, and how much of the canvas the subject covers has
+nothing to do with the thing it shows: `bear.png` fills 97% of its height,
+`tiara.png` 42%, `sapling.png` 30%. Size a sprite by its file and you have sized
+it by that accident — which is why a Tiara used to draw *smaller* than the Fancy
+Bow it merges up from, and why the Girl stood a third shorter than she was asked
+to, floating above the floor with a hit box twice as wide as she was. So `Artwork`
+crops every drawing to its opaque pixels first, once, and it is the crop that gets
+a size. New art still needs no preparation: drop the PNG in and it is trimmed for
+you.
+
+**An item's box is shaped to its drawing, at a fixed area.** A wide thing and a
+tall thing of the same merge level should read as the same amount of item, which
+fitting both into one shared box does not do — the wide one only ever touches the
+sides. Sizing by area instead means the box is also honest about what it holds, so
+what you can grab, what the merge ring is drawn around and what is kept inside the
+room are all the drawing itself. An item with no artwork yet draws square at that
+same area, so swapping the real one in changes the picture and not the layout.
+
+The three places an item can be have three amounts of room, so each reads the same
+range of merge levels at its own strength:
+
+| Where | How levels read |
+| --- | --- |
+| In the room | `scale` at face value — full range, because showing one off is the point of carrying it in there. |
+| On the shelf | Squeezed to fit one slot. Every slot is the same size, so at face value a Crown would simply cover its neighbours, and the fuller the shelf the worse it got. |
+| On a character | Square root of `scale`, against the character's height. A Crown should read as grander than a Bow without being twice the size of the head it sits on. |
 
 ## Saving
 

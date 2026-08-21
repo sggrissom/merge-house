@@ -54,8 +54,25 @@ struct Artwork {
 
     private static var cache: [String: Entry] = [:]
 
-    /// The part of an image that is not fully transparent, in the unit
-    /// coordinates `SKTexture(rect:in:)` wants — origin at the bottom left.
+    /// The faintest a pixel can be and still count as part of the drawing.
+    ///
+    /// Not zero, which is what this used to be. A painting app leaves a haze of
+    /// alpha-1 and alpha-2 pixels around where the brush has been — invisible on
+    /// screen, but not *nothing*, and a crop that counts them is a crop drawn
+    /// around the artist's stray gestures rather than around the picture.
+    /// `party-dress.png` carries such a haze out to the right edge of its canvas
+    /// and `dress.png` a patch of it above the collar, so both cropped to a box
+    /// far larger than the dress in it — and since a worn item is centred on its
+    /// box, both hung off the side of whoever put them on, a quarter too small,
+    /// while `ball-gown.png` next to them was clean and sat correctly.
+    ///
+    /// Nine percent is well under anything a person can see against the
+    /// background and well over the haze. It costs at most one cell of the scan
+    /// below off a genuinely soft edge, which at this coarseness is no edge at all.
+    private static let opaqueAlphaFloor: UInt8 = 24
+
+    /// The part of an image that is actually drawn on, in the unit coordinates
+    /// `SKTexture(rect:in:)` wants — origin at the bottom left.
     /// `nil` means take the whole canvas: either it is already cropped, or it is
     /// blank, and blowing up nothing to fill a box would be worse than leaving it.
     ///
@@ -88,7 +105,8 @@ struct Artwork {
         var minColumn = columns, maxColumn = -1
         var minRow = rows, maxRow = -1
         for row in 0..<rows {
-            for column in 0..<columns where pixels[(row * columns + column) * 4 + 3] > 0 {
+            for column in 0..<columns
+            where pixels[(row * columns + column) * 4 + 3] > opaqueAlphaFloor {
                 minColumn = min(minColumn, column)
                 maxColumn = max(maxColumn, column)
                 minRow = min(minRow, row)

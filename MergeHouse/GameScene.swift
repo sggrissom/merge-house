@@ -130,7 +130,14 @@ final class GameScene: SKScene {
 
     // MARK: - Setup
 
-    override init(size: CGSize) {
+    /// Which save this is. Held for the whole life of the scene: it is both the
+    /// file that was read on the way in and the one every write on the way out
+    /// goes to, so there is no moment where the game being played and the game
+    /// being written are different games.
+    private let slot: SaveSlot
+
+    init(size: CGSize, slot: SaveSlot) {
+        self.slot = slot
         super.init(size: size)
         scaleMode = .resizeFill
         anchorPoint = .zero
@@ -2195,7 +2202,7 @@ final class GameScene: SKScene {
     @objc private func flushSave() {
         guard needsSave else { return }
         needsSave = false
-        SaveStore.save(snapshot())
+        SaveStore.save(snapshot(), id: slot.id)
     }
 
     private func snapshot() -> SavedGame {
@@ -2213,6 +2220,8 @@ final class GameScene: SKScene {
             }
         }
         return SavedGame(version: SavedGame.currentVersion,
+                         name: slot.name,
+                         saved: Date(),
                          items: saved,
                          character: character.id,
                          characterX: Double(characterAnchor.x),
@@ -2228,7 +2237,7 @@ final class GameScene: SKScene {
     /// and the rest is kept; a character or a piece of furniture that has gone
     /// falls back rather than throwing the save away.
     private func restoreSavedGame() {
-        guard let saved = SaveStore.load() else { return }
+        guard let saved = SaveStore.load(slot.id) else { return }
 
         for entry in saved.items {
             guard let definition = ItemCatalog.definition(id: entry.item),

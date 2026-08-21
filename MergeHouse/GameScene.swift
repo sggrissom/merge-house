@@ -233,6 +233,62 @@ final class GameScene: SKScene {
     private func layoutRoom() {
         roomNode.removeAllChildren()
 
+        if let backdrop = makeBackdrop(in: roomRect) {
+            backdrop.zPosition = 0
+            roomNode.addChild(backdrop)
+        } else {
+            addPlaceholderRoom()
+        }
+
+        let outline = SKShapeNode(rect: roomRect)
+        outline.fillColor = .clear
+        outline.strokeColor = SKColor(white: 0.25, alpha: 1)
+        outline.lineWidth = 3
+        outline.zPosition = 2
+        roomNode.addChild(outline)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = "Bedroom"
+        label.fontSize = max(20, roomRect.height * 0.07)
+        label.fontColor = SKColor(white: 0.25, alpha: 1)
+        label.verticalAlignmentMode = .top
+        label.horizontalAlignmentMode = .center
+        label.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - roomRect.height * 0.05)
+        label.zPosition = 3
+        roomNode.addChild(label)
+    }
+
+    private static let backdropImageName = "bedroom"
+
+    /// The room artwork, scaled to fill `rect`. The artwork's aspect ratio rarely
+    /// matches the room's, and letterboxing would show the scene's dark backing
+    /// through the room, so the overflowing side is cropped off the texture
+    /// instead of being drawn outside the room.
+    private func makeBackdrop(in rect: CGRect) -> SKSpriteNode? {
+        guard rect.width > 0, rect.height > 0,
+              let image = UIImage(named: Self.backdropImageName) else { return nil }
+
+        let whole = SKTexture(imageNamed: Self.backdropImageName)
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return nil }
+
+        // Fractions of the texture to keep, in the unit coordinates SKTexture
+        // wants, centred on what is cropped.
+        let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
+        let keepX = min(1, rect.width / (imageSize.width * scale))
+        let keepY = min(1, rect.height / (imageSize.height * scale))
+        let cropped = SKTexture(rect: CGRect(x: (1 - keepX) / 2, y: (1 - keepY) / 2,
+                                             width: keepX, height: keepY),
+                                in: whole)
+
+        let sprite = SKSpriteNode(texture: cropped, size: rect.size)
+        sprite.position = CGPoint(x: rect.midX, y: rect.midY)
+        return sprite
+    }
+
+    /// The flat wall and floor the room had before there was artwork. Kept as the
+    /// fallback so a missing image leaves a playable room rather than a hole.
+    private func addPlaceholderRoom() {
         let floorHeight = roomRect.height * 0.38
         let wall = CGRect(x: roomRect.minX,
                           y: roomRect.minY + floorHeight,
@@ -254,23 +310,6 @@ final class GameScene: SKScene {
         floorNode.strokeColor = .clear
         floorNode.zPosition = 1
         roomNode.addChild(floorNode)
-
-        let outline = SKShapeNode(rect: roomRect)
-        outline.fillColor = .clear
-        outline.strokeColor = SKColor(white: 0.25, alpha: 1)
-        outline.lineWidth = 3
-        outline.zPosition = 2
-        roomNode.addChild(outline)
-
-        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = "Bedroom"
-        label.fontSize = max(20, roomRect.height * 0.07)
-        label.fontColor = SKColor(white: 0.25, alpha: 1)
-        label.verticalAlignmentMode = .top
-        label.horizontalAlignmentMode = .center
-        label.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - roomRect.height * 0.05)
-        label.zPosition = 3
-        roomNode.addChild(label)
     }
 
     // MARK: - Furniture

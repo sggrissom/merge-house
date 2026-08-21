@@ -1,4 +1,5 @@
 import SpriteKit
+import UIKit
 
 /// The whole play area: the bedroom on top, the Stuff area below.
 /// Drawn from shapes and labels, with artwork swapped in wherever it exists.
@@ -74,6 +75,9 @@ final class GameScene: SKScene {
     /// Reads out how much is loose, so a shelf with more on it than fits still
     /// says how much that is.
     private var stuffCountLabel: SKLabelNode?
+    /// The size that readout wants to be. Held so it can be shrunk to fit a long
+    /// tally and then grow back again, rather than only ever getting smaller.
+    private var stuffCountFontSize: CGFloat = 0
     /// The open sheet — the Catalog or the character picker. Empty while closed.
     private let sheetNode = SKNode()
     /// Where each entry in the open sheet sits, so a tap can act on it. What the
@@ -152,7 +156,33 @@ final class GameScene: SKScene {
     }
 
     override func didMove(to view: SKView) {
+        // Once, however many times the scene is presented. `didMove` fires again
+        // on a re-present, and restoring twice would append a second copy of
+        // everything in the save.
+        if !hasRestored {
+            hasRestored = true
+            // The model is restored first and the nodes are built from it, which
+            // is the same path a resize takes — so loading a save exercises no
+            // code that ordinary play does not.
+            restoreSavedGame()
+        }
         layoutScene()
+        refreshStuffDensity()
+
+        // Removed first for the same reason: presenting twice must not leave two
+        // observers writing the same save.
+        NotificationCenter.default.removeObserver(
+            self, name: UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(flushSave),
+            name: UIApplication.willResignActiveNotification, object: nil)
+    }
+
+    private var hasRestored = false
+
+    override func willMove(from view: SKView) {
+        NotificationCenter.default.removeObserver(self)
+        flushSave()
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -403,9 +433,11 @@ final class GameScene: SKScene {
         count.zPosition = 1
         stuffNode.addChild(count)
         stuffCountLabel = count
-        refreshStuffCount()
+        stuffCountFontSize = count.fontSize
 
         layoutTools(inset: inset)
+        // After the toolbar, which is what the readout has to stay clear of.
+        refreshStuffCount()
 
         // Items are dealt into the space left of the toolbar and below the title.
         // The shelf is sized first and the items to fit it, rather than the other
@@ -575,7 +607,19 @@ final class GameScene: SKScene {
         if carried > 0 {
             text += " · \(carried) on \(character.name)"
         }
-        stuffCountLabel?.text = text
+
+        guard let label = stuffCountLabel else { return }
+        label.text = text
+        // The readout runs rightwards into the toolbar, and "3 items · 1 in the
+        // room · 3 on Girl" is long enough to disappear under it. Same bargain
+        // the Catalog's filenames strike first — a small line that fits beats a
+        // big one that is covered up — and then, where the toolbar starts almost
+        // at the title and even the smallest legible size will not fit, no line
+        // at all beats an unreadable smear under the buttons.
+        label.fontSize = stuffCountFontSize
+        let available = buttonColumnMinX - label.position.x - stuffCountFontSize * 0.5
+        shrinkToFit(label, width: available)
+        label.isHidden = label.frame.width > available
     }
 
     private func toolTapped(_ tool: StuffTool) {
@@ -589,6 +633,7 @@ final class GameScene: SKScene {
         case .labels: toggleItemLabels()
         case .trash: clearStuffTapped()
         }
+        setNeedsSave()
     }
 
     /// The Labels button says what it will do next, so its state is readable
@@ -630,6 +675,7 @@ final class GameScene: SKScene {
         items.removeAll()
         itemNodes.removeAll()
         refreshStuffCount()
+        setNeedsSave()
         refreshStuffDensityAfterPoof()
     }
 
@@ -740,6 +786,7 @@ final class GameScene: SKScene {
             items.remove(at: index)
         }
         refreshStuffCount()
+        setNeedsSave()
         refreshStuffDensityAfterPoof()
     }
 
@@ -817,6 +864,7 @@ final class GameScene: SKScene {
         let node = addItemNode(for: item)
         refreshItemDepths()
         refreshStuffCount()
+        setNeedsSave()
         return node
     }
 
@@ -827,6 +875,7 @@ final class GameScene: SKScene {
             items.remove(at: index)
         }
         refreshStuffCount()
+        setNeedsSave()
     }
 
     /// The size one item draws at. Items are dealt out small enough to fit the
@@ -981,6 +1030,8 @@ final class GameScene: SKScene {
         // node — so the one to animate is looked up after that, not held onto.
         refreshStuffDensity()
 
+        setNeedsSave()
+
         guard let node = itemNodes[id] else { return }
         node.setScale(0.6)
         node.run(.sequence([.scale(to: 1.14, duration: 0.10),
@@ -1008,6 +1059,7 @@ final class GameScene: SKScene {
         let fresh = addItemNode(for: items[index])
         refreshItemDepths()
         refreshStuffCount()
+        setNeedsSave()
         return fresh
     }
 
@@ -1590,6 +1642,7 @@ final class GameScene: SKScene {
         case .item(let id):
             settleItem(id: id)
         }
+        setNeedsSave()
     }
 
     /// Which usable piece the character is currently over, if any.
@@ -2002,6 +2055,7 @@ final class GameScene: SKScene {
         characterNode.setScale(1)
         characterNode.run(.sequence([.scale(to: 1.12, duration: 0.10),
                                      .scale(to: 1.0, duration: 0.12)]))
+        setNeedsSave()
     }
 
     /// On release, snap the character onto whichever piece they were dropped on.
@@ -2012,5 +2066,103 @@ final class GameScene: SKScene {
         characterUsing = kind
         layoutCharacter()
     }
-}
 
+    // MARK: - Saving
+
+    /// Writing is deferred rather than done inline: dropping an item touches the
+    /// model several times over, and a drag would otherwise write on every frame.
+    /// Anything that changes what the child has made just says so, and `update`
+    /// writes it out at most once a second.
+    private var needsSave = false
+    private var lastSaveTime: TimeInterval = 0
+
+    private func setNeedsSave() {
+        needsSave = true
+    }
+
+    override func update(_ currentTime: TimeInterval) {
+        guard needsSave, currentTime - lastSaveTime >= 1 else { return }
+        lastSaveTime = currentTime
+        flushSave()
+    }
+
+    /// Writes immediately, whatever the timer says. Called when the app is about
+    /// to go away, which is exactly the moment the deferred write cannot wait.
+    @objc private func flushSave() {
+        guard needsSave else { return }
+        needsSave = false
+        SaveStore.save(snapshot())
+    }
+
+    private func snapshot() -> SavedGame {
+        let saved = items.map { item -> SavedItem in
+            switch item.location {
+            case .stuff:
+                return SavedItem(item: item.definition.id, place: "stuff", carry: nil,
+                                 x: Double(item.anchor.x), y: Double(item.anchor.y))
+            case .room:
+                return SavedItem(item: item.definition.id, place: "room", carry: nil,
+                                 x: Double(item.anchor.x), y: Double(item.anchor.y))
+            case .carried(let style):
+                return SavedItem(item: item.definition.id, place: "carried",
+                                 carry: style.rawValue, x: 0, y: 0)
+            }
+        }
+        return SavedGame(version: SavedGame.currentVersion,
+                         items: saved,
+                         character: character.id,
+                         characterX: Double(characterAnchor.x),
+                         characterY: Double(characterAnchor.y),
+                         characterUsing: characterUsing?.rawValue)
+    }
+
+    /// Rebuilds the model from the save, if there is one.
+    ///
+    /// Everything here is written to survive a catalog that has been edited since
+    /// the file was written, because a catalog that can be edited freely is the
+    /// whole point of this prototype. An item id that no longer exists is dropped
+    /// and the rest is kept; a character or a piece of furniture that has gone
+    /// falls back rather than throwing the save away.
+    private func restoreSavedGame() {
+        guard let saved = SaveStore.load() else { return }
+
+        for entry in saved.items {
+            guard let definition = ItemCatalog.definition(id: entry.item),
+                  let restored = restored(entry, definition: definition) else { continue }
+            items.append(Item(id: nextItemID, definition: definition,
+                              location: restored.location, anchor: restored.anchor))
+            nextItemID += 1
+        }
+
+        if let id = saved.character, let definition = CharacterCatalog.definition(id: id) {
+            character = definition
+        }
+        characterAnchor = CGPoint(x: saved.characterX, y: saved.characterY)
+        if let raw = saved.characterUsing, let kind = FurnitureKind(rawValue: raw),
+           kind.characterLabel != nil {
+            characterUsing = kind
+        }
+    }
+
+    /// Where one saved entry goes now. A carried item stores no position of its
+    /// own — its place comes from the character's carry point — so one that can
+    /// no longer be carried needs an anchor inventing for it, and the middle of
+    /// the floor is somewhere it will actually be seen.
+    private func restored(_ entry: SavedItem,
+                          definition: ItemDefinition) -> (location: ItemLocation, anchor: CGPoint)? {
+        let anchor = CGPoint(x: entry.x, y: entry.y)
+        switch entry.place {
+        case "stuff": return (.stuff, anchor)
+        case "room": return (.room, anchor)
+        case "carried":
+            // A carry style that no longer exists, or an item that is no longer
+            // the kind of thing you can wear, is put down rather than dropped.
+            guard let raw = entry.carry, let style = CarryStyle(rawValue: raw),
+                  definition.carry == style else {
+                return (.room, CGPoint(x: 0.5, y: 0.2))
+            }
+            return (.carried(style), anchor)
+        default: return nil
+        }
+    }
+}

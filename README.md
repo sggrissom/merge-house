@@ -2,8 +2,9 @@
 
 Prototype built one milestone at a time — see `plan.md`.
 
-**Current milestone: 14 — Several Merge Chains**, plus a first pass at carrying:
-the character can wear and hold what you merge.
+**Current milestone: 15 — Minimal Local Save.** Milestone 14 (several merge
+chains) is done, plus a first pass at carrying: the character can wear and hold
+what you merge, and what you made is still there next time you open the app.
 
 ## Explore tools
 
@@ -54,6 +55,31 @@ looks wrong rather than teaching the hat about that character.
 Still missing, and worth doing next: nothing is animated, a carry point is a
 single fixed spot rather than a pose, and the character has no reaction to what
 they are holding.
+
+## Saving
+
+What you made is written to `merge-house-save.json` in the app's Application
+Support directory, and read back on launch: every loose item and where it is, what
+the character is wearing and holding, who you are playing as, and what they are
+sitting on.
+
+Two decisions worth knowing about:
+
+- **A file, not `UserDefaults`.** `UserDefaults` batches its disk writes, so a save
+  made seconds before the app is killed is simply gone — which is exactly the case
+  the save exists for. The file is written atomically, and it is pretty-printed
+  JSON, so you can read it.
+- **It survives you editing the catalogs.** That is the whole premise of this
+  prototype, so the save stores item and character *ids* rather than positions in
+  a list. An id that no longer exists is dropped and everything else is kept; a
+  character or a piece of furniture that has gone falls back rather than throwing
+  the save away; an item that is no longer something you can wear is put down on
+  the floor rather than lost. There is no migration and there should not be one —
+  an unrecognised `version` starts fresh.
+
+The save is written at most once a second while anything has changed, and
+immediately when the app is about to go into the background. `Trash` clears
+everything, which saves too — that is the way to start over.
 
 ## Adding content
 

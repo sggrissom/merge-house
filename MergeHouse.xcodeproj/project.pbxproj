@@ -14,6 +14,7 @@
 		1A0000000000000000000025 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000015 /* GameScene.swift */; };
 		1A0000000000000000000026 /* ItemCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000016 /* ItemCatalog.swift */; };
 		1A0000000000000000000027 /* CharacterCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000017 /* CharacterCatalog.swift */; };
+		1A0000000000000000000028 /* SaveGame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000018 /* SaveGame.swift */; };
 		33F5CFE73036669A000C3EDD /* crown.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFE63036669A000C3EDD /* crown.png */; };
 		33F5CFFE30369E23000C3EDD /* bow.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFB30369E23000C3EDD /* bow.png */; };
 		33F5CFFF30369E23000C3EDD /* bear.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFA30369E23000C3EDD /* bear.png */; };
@@ -33,6 +34,7 @@
 		1A0000000000000000000015 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		1A0000000000000000000016 /* ItemCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCatalog.swift; sourceTree = "<group>"; };
 		1A0000000000000000000017 /* CharacterCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterCatalog.swift; sourceTree = "<group>"; };
+		1A0000000000000000000018 /* SaveGame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveGame.swift; sourceTree = "<group>"; };
 		33F5CFE63036669A000C3EDD /* crown.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = crown.png; sourceTree = "<group>"; };
 		33F5CFFA30369E23000C3EDD /* bear.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bear.png; sourceTree = "<group>"; };
 		33F5CFFB30369E23000C3EDD /* bow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bow.png; sourceTree = "<group>"; };
@@ -79,6 +81,7 @@
 				1A0000000000000000000015 /* GameScene.swift */,
 				1A0000000000000000000016 /* ItemCatalog.swift */,
 				1A0000000000000000000017 /* CharacterCatalog.swift */,
+				1A0000000000000000000018 /* SaveGame.swift */,
 				1A0000000000000000000012 /* Assets.xcassets */,
 				33F5CFE63036669A000C3EDD /* crown.png */,
 				33F5CFFA30369E23000C3EDD /* bear.png */,
@@ -175,6 +178,7 @@
 				1A0000000000000000000025 /* GameScene.swift in Sources */,
 				1A0000000000000000000026 /* ItemCatalog.swift in Sources */,
 				1A0000000000000000000027 /* CharacterCatalog.swift in Sources */,
+				1A0000000000000000000028 /* SaveGame.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

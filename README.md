@@ -1,14 +1,13 @@
 # Merge House
 
-Prototype built one milestone at a time — see `plan.md`.
+The prototype loop is finished: get stuff, merge it, carry it, walk it into a
+room, and find it still there next time you open the app. Several merge chains,
+several characters and several rooms exist, and the kids are drawing the art.
 
-**Current milestone: 15 — Minimal Local Save.** Milestone 14 (several merge
-chains) is done, plus a first pass at carrying: the character can wear and hold
-what you merge, and what you made is still there next time you open the app.
-
-There is now more than one room, which `plan.md` lists as out of scope for the
-prototype "unless requested" — it was requested. Everything else on that list is
-still out.
+Anything without artwork yet draws as a placeholder that captions itself with the
+filename that would replace it, so the art list lives in the app rather than in a
+document — open `Catalog`, `Characters` or `Rooms` to see what is still missing.
+Drop the PNG in and it takes over, with no code change.
 
 ## Explore tools
 

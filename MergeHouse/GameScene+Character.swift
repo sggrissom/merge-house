@@ -19,6 +19,10 @@ extension GameScene {
         // in local coordinates.
         characterNode.position = .zero
         characterNode.zRotation = 0
+        // A walk is on its way somewhere in scene coordinates, and this decides
+        // where the character is; the walk loses. They keep whatever ground they
+        // covered, because the model has been following them the whole way.
+        stopWalking()
         // Being alive is stopped and wound back to a standing figure before
         // anything is measured, so a breath half taken never ends up baked into
         // the frame everything else is clamped and hit-tested against.
@@ -49,6 +53,121 @@ extension GameScene {
 
         relayoutCarriedItems()
         startBeingAlive()
+    }
+
+    // MARK: - Walking
+
+    static let characterWalkKey = "walk"
+    static let characterRockKey = "rock"
+
+    /// How far the figure sways to each side while walking.
+    static let characterRockAngle: CGFloat = 0.055
+
+    /// Whether a walk is under way. Asked of the node rather than kept in a flag
+    /// of its own, so there is one answer to it rather than two that can drift
+    /// apart.
+    var isWalking: Bool {
+        characterNode.action(forKey: Self.characterWalkKey) != nil
+    }
+
+    /// Walks the character over to a point in the room, and sits them on a piece
+    /// of furniture if that is what they were walking to.
+    ///
+    /// This is a second way in rather than a replacement: dragging still works
+    /// exactly as it did, it is still what you use to put somebody somewhere
+    /// exact, and it wins — picking anybody or anything up cancels a walk.
+    func walkCharacter(to point: CGPoint, sittingOn pieceID: String?) {
+        stopWalking()
+
+        // Whatever they were on, they are getting off it — stood up where the
+        // figure actually is, so the walk starts from the character the child is
+        // looking at rather than from wherever the model last put them.
+        if characterUsing != nil {
+            characterAnchor = characterAnchor(for: characterNode.position)
+            characterUsing = nil
+            layoutCharacter()
+        }
+
+        let destination = clampedCharacterPosition(point)
+        let start = characterNode.position
+        let distance = hypot(destination.x - start.x, destination.y - start.y)
+
+        // Near enough to be standing there already: get on with it rather than
+        // taking a step for the sake of it.
+        guard distance > characterHeight * 0.05 else {
+            characterNode.position = destination
+            finishWalk(sittingOn: pieceID)
+            return
+        }
+
+        // Paced by how far it is, at about a body and a half a second, so a step
+        // aside is quick and crossing the room takes long enough to be worth
+        // watching.
+        let duration = min(1.6, max(0.20, TimeInterval(distance / (characterHeight * 1.5))))
+        let walk = SKAction.move(to: destination, duration: duration)
+        walk.timingMode = .easeInEaseOut
+
+        characterNode.run(.sequence([walk, .run { [weak self] in
+            self?.finishWalk(sittingOn: pieceID)
+        }]), withKey: Self.characterWalkKey)
+        startRocking()
+    }
+
+    /// Keeps the model in step with a walk in progress, once a frame, exactly as
+    /// a drag does on every frame it moves. It means an interrupted walk needs
+    /// no unwinding at all: wherever they got to is where they are.
+    func trackWalk() {
+        guard isWalking else { return }
+        characterAnchor = characterAnchor(for: characterNode.position)
+    }
+
+    /// Stops a walk wherever it has got to, and leaves them standing there.
+    func stopWalking() {
+        let wasWalking = isWalking
+        characterNode.removeAction(forKey: Self.characterWalkKey)
+        stopRocking()
+        // `trackWalk` has already put the model where the figure is; all that is
+        // left is to say that it changed.
+        if wasWalking {
+            setNeedsSave()
+        }
+    }
+
+    /// The end of a walk: they are where they were going, and they get on
+    /// whatever it was they were walking to. A piece that has gone — the room
+    /// was changed under them — simply leaves them standing in front of it.
+    func finishWalk(sittingOn pieceID: String?) {
+        stopRocking()
+        characterAnchor = characterAnchor(for: characterNode.position)
+        if let pieceID = pieceID, piece(for: pieceID) != nil {
+            characterUsing = pieceID
+            layoutCharacter()
+        }
+        setNeedsSave()
+    }
+
+    /// The side-to-side sway that makes a walk a walk rather than a slide.
+    ///
+    /// It rocks the whole figure, hat and teddy included, on the same node the
+    /// lean uses and in the same property. The two never overlap: starting any
+    /// drag cancels a walk, and a lean only happens during one.
+    func startRocking() {
+        let over = SKAction.rotate(toAngle: Self.characterRockAngle, duration: 0.20)
+        over.timingMode = .easeInEaseOut
+        let back = SKAction.rotate(toAngle: -Self.characterRockAngle, duration: 0.20)
+        back.timingMode = .easeInEaseOut
+        characterLeanNode.run(.repeatForever(.sequence([over, back])),
+                              withKey: Self.characterRockKey)
+    }
+
+    /// Stands them straight again, from wherever in the sway they stopped.
+    func stopRocking() {
+        guard characterLeanNode.action(forKey: Self.characterRockKey) != nil else { return }
+        characterLeanNode.removeAction(forKey: Self.characterRockKey)
+        characterLean = 0
+        let straighten = SKAction.rotate(toAngle: 0, duration: 0.14, shortestUnitArc: true)
+        straighten.timingMode = .easeOut
+        characterLeanNode.run(straighten, withKey: Self.characterLeanKey)
     }
 
     // MARK: - Being alive

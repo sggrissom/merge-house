@@ -27,10 +27,50 @@ extension GameScene {
 
         if characterSceneFrame().contains(location) {
             beginCharacterDrag(touch: touch, at: location)
+            return
+        }
+
+        // Nothing under the finger. It might yet be a tap on the room, which is
+        // a walk — but only if the finger comes up near where it went down.
+        if roomRect.contains(location) {
+            tapTouch = touch
+            tapStart = location
         }
     }
 
+    /// How far a finger can travel and still have been a tap.
+    var tapSlop: CGFloat {
+        max(10, min(size.width, size.height) * 0.02)
+    }
+
+    /// A tap on the room: they walk there.
+    ///
+    /// A tap on something they can get on walks them to it *and* puts them on
+    /// it, which is the fiddliest drag in the game — lining a body up with a bed
+    /// — done with one finger in one go.
+    func floorTapped(at location: CGPoint) {
+        guard roomRect.contains(location) else { return }
+        if let piece = usablePiece(at: location) {
+            // Already on it: tapping the bed you are lying on is not a reason to
+            // get up and lie down again.
+            guard piece.id != characterUsing else { return }
+            walkCharacter(to: seatPosition(for: piece), sittingOn: piece.id)
+        } else {
+            walkCharacter(to: location, sittingOn: nil)
+        }
+    }
+
+    /// The frontmost piece under a point that a character can actually get on.
+    /// Room order is draw order, so the last match is the one on top — and a
+    /// Table, which is furniture you only walk past, is not a match at all.
+    func usablePiece(at location: CGPoint) -> FurniturePiece? {
+        furniturePieces.last { $0.definition.use != nil && $0.rect.contains(location) }
+    }
+
     func beginCharacterDrag(touch: UITouch, at location: CGPoint) {
+        // A drag beats a walk: whatever they were told to do, this is what they
+        // are doing now.
+        stopWalking()
         if characterUsing != nil {
             // Stand them up where they are, then let the drag carry on from there.
             characterAnchor = characterAnchor(for: characterNode.position)
@@ -46,6 +86,9 @@ extension GameScene {
 
     func beginItemDrag(_ item: Item, node: SKNode,
                                     touch: UITouch, at location: CGPoint) {
+        // Picking anything up stops a walk, so that what is being carried
+        // towards them is not also walking away.
+        stopWalking()
         var node = node
         // Taking something off is just picking it up: it leaves the character,
         // is redrawn at room size and carries on under the finger as a loose item.
@@ -70,6 +113,13 @@ extension GameScene {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let tap = tapTouch, touches.contains(tap) {
+            let moved = tap.location(in: self)
+            if hypot(moved.x - tapStart.x, moved.y - tapStart.y) > tapSlop {
+                tapTouch = nil
+            }
+        }
+
         guard let touch = dragTouch, touches.contains(touch), let subject = dragSubject else { return }
         let location = touch.location(in: self)
         let target = CGPoint(x: location.x + dragOffset.x,
@@ -99,10 +149,17 @@ extension GameScene {
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let tap = tapTouch, touches.contains(tap) {
+            tapTouch = nil
+            floorTapped(at: tap.location(in: self))
+        }
         endDrag(touches)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let tap = tapTouch, touches.contains(tap) {
+            tapTouch = nil
+        }
         endDrag(touches)
     }
 

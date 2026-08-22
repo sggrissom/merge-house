@@ -96,6 +96,13 @@ So a new piece of furniture works in every room that lists it, and a new room
 furnishes itself out of pieces that already know how they are used. A room with
 two chairs gets two seats, told apart as `chair` and `chair-2`.
 
+There are two ways to move somebody. Tap the floor and they walk there, swaying
+as they go and taking longer the further it is; tap a chair or a bed and they
+walk over and get on it, which is otherwise the fiddliest drag in the game.
+Dragging is untouched and still wins: it is what you use to put somebody
+somewhere exact, and picking anybody or anything up cancels a walk in progress,
+leaving them wherever they had got to.
+
 What travels and what stays is worth being exact about, because it is the only
 thing about rooms a child will actually notice:
 

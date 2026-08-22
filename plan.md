@@ -1,860 +1,433 @@
-# Merge House — Initial Prototype Plan
+# Merge House — What To Build Next
 
-## Purpose
+The prototype loop works: get stuff, merge it, wear it, carry it into a room,
+find it there tomorrow. What follows is a list of things worth adding *other than
+more art* — features that make what already exists feel more alive, or make new
+toys out of systems that are already here.
 
-Build the smallest possible playable prototype of **Merge House**, one visible step at a time.
+Everything below obeys the rule the prototype was built on, because it is the
+reason the prototype is pleasant to edit:
 
-The primary target is **iPad**, with **landscape orientation** as the reference experience. The app should also remain compatible with iPhone where practical, using the same codebase and adaptive layout rather than separate implementations.
+> **A thing knows what kind of thing it is. Wherever it goes knows where that is.**
 
-This prototype intentionally uses **zero final art**. Everything should be represented with simple shapes, text labels, and system styling until the core interaction loop works. The end goal of this plan is to reach a point where the game can be handed to the kids as a concrete template for creating the real artwork.
+An item says `carry: .head`; the character says where a head is. A bed says you
+lie on it; the room says which corner it is in. Any feature that would make a Bow
+know about a Baby, or make gameplay code know what a kitchen is, has been
+rewritten below until it does not.
 
----
+The same goes for the second rule: **missing artwork is a normal state, not an
+error.** Anything new that could have a file behind it — a sound, a wallpaper, a
+face — draws or plays as a labeled placeholder until the file lands, and says the
+filename it is waiting for.
 
-## Product Idea
-
-Merge House is a simple digital dollhouse with a merge mechanic.
-
-The intended loop is:
-
-1. Enter a room.
-2. Move a character around.
-3. Interact with simple furniture.
-4. Generate loose objects in a "stuff" area.
-5. Drag matching objects together to merge them.
-6. Place the resulting objects into the house.
-7. Play with the character and objects.
-
-The prototype does **not** need to resemble a commercial merge game beyond that basic idea.
+Ideas are grouped by what they buy, not by size. Each says roughly what it
+touches and how big it is: **S** is an afternoon, **M** is a weekend, **L** is a
+real feature with a save change in it.
 
 ---
 
-## Technical Direction
+## Tier 1 — Make what exists feel alive
 
-Use Apple's native frameworks:
+Nothing here adds a new toy. All of it makes the toys already in the box feel
+like they are made of something. This is the tier with the best ratio of delight
+to work, and I would do all five before anything in Tier 2.
 
-- **Swift**
-- **SwiftUI** for app-level UI such as the main menu and screen structure.
-- **SpriteKit** for the interactive room, draggable character, objects, placement, and merging.
+### 1. Sound (S)
 
-Prefer standard Apple frameworks only. Do not add third-party dependencies unless there is a clear need that cannot reasonably be handled natively.
+The whole game is silent, which for a toy aimed at a child is the single biggest
+thing missing. Not music — noises:
 
-### Platform
+| When | What |
+| --- | --- |
+| Two things merge | A rising pop, pitched up by merge level, so a Crown sounds grander than a Bow |
+| An item is picked up / put down | A soft tick and a thud |
+| Something is worn | A little sparkle |
+| Walking into another room | A door |
+| Trash | A crumple |
+| Topping out a chain | A fanfare (see #5) |
 
-- Primary: iPad
-- Reference layout: landscape iPad
-- Secondary: iPhone
-- Use one universal app target if practical.
-- Layout should adapt to available screen size.
-- Do not create separate iPad and iPhone game implementations.
+Fits the catalogs the way art does: `sound: "pop-teddy"` on an `ItemDefinition`,
+falling back to a shared default per event, falling back to silence if neither
+file exists. `SKAction.playSoundFileNamed` is the whole implementation; the
+missing-file check needs a `Bundle.main.url(forResource:)` guard first, because
+that action traps on a missing file rather than shrugging like `UIImage(named:)`
+does.
 
-### Prototype Art Rules
+*Touches:* a new `Sounds.swift`, one line each in `merge`, `attach`, `putDown`,
+`goToRoom`, `discardItem`.
 
-Until the art handoff phase:
+**A mute button is not optional.** It goes in the toolbar (see #14), and it is
+saved — the first thing a parent will want at bedtime.
 
-- Do not download or integrate art packs.
-- Do not generate production artwork.
-- Use `SKShapeNode`, simple colors, SF Symbols where useful, and text labels.
-- Every game object must still work if its real image asset is missing.
-- Missing artwork should be a supported normal state, not an error.
+### 2. The character is alive (S–M)
 
-Example placeholder:
+The README already names this as the gap: "nothing is animated, and the character
+has no reaction to what they are holding."
 
-```text
-┌─────────────┐
-│ Little Teddy│
-└─────────────┘
-```
+- **Idle:** a slow breathing bob and a periodic blink-scale, running forever on
+  `characterBodyNode`. Two `SKAction.repeatForever`s, and it transforms how the
+  room reads.
+- **Pick-up:** they lean toward whatever is being dragged near them.
+- **Reaction:** a bubble pops above them when something is given — a heart for a
+  teddy, a star for a crown, a crumb for a cake.
 
-Later, a real image should be able to replace that placeholder without changing gameplay code.
+The reaction is the part that wants the catalog split, or it turns into a
+switch statement that knows what a teddy is. So: `ItemDefinition` gains
+`reaction: Reaction?` (`.love`, `.proud`, `.yum`, `.silly`), and the *bubble*
+knows how to draw each one. An item with no reaction gets a generic sparkle. The
+character never learns what a teddy is.
 
----
+*Touches:* `GameScene+Character.swift`, `ItemCatalog.swift`, `attach`.
 
-# Agent Working Rules
+### 3. Tap to walk (S)
 
-The most important rule is:
+Right now the character is dragged, which is fine, but tapping the floor and
+watching them walk over is what a child expects and it costs almost nothing:
+`SKAction.move(to:duration:)` with the duration from the distance, plus a small
+side-to-side rock while moving so it reads as walking rather than sliding.
+Dragging keeps working exactly as it does — this is an additional way in, not a
+replacement, and the drag is still what you use to put someone on the bed.
 
-> **Implement only the current milestone. Do not anticipate later milestones.**
+Two details that matter: the walk is cancelled the moment a drag starts, and
+tapping a piece of furniture walks them to it *and* sits them on it, which is
+currently a fairly fiddly drag.
 
-For every milestone:
+*Touches:* `GameScene+Input.swift`, `GameScene+Character.swift`.
 
-1. Make the smallest reasonable implementation.
-2. Keep the project compiling.
-3. Run/build the app after the change.
-4. Verify the milestone's acceptance criteria.
-5. Briefly report:
-   - what changed,
-   - important files changed,
-   - any decision that could affect later work.
-6. Stop unless explicitly asked to continue.
+### 4. Things stand on the floor and on tables (M)
 
-Do not add speculative systems such as:
+An item dropped in the room stays exactly where it was let go, including in
+mid-air. A room full of floating teddies is the main reason the dollhouse reads
+as a scrapbook rather than a room.
 
-- accounts,
-- networking,
-- backend services,
-- currencies,
-- energy,
-- timers,
-- quests,
-- stores,
-- achievements,
-- analytics,
-- elaborate navigation,
-- generalized ECS architecture,
-- elaborate inventory systems,
-- animation frameworks,
-- complex save migrations.
+Two changes, and they are the same change twice:
 
-Hardcoded prototype data is acceptable when it keeps a milestone simple.
+- **A room has a floor line.** `RoomDefinition` already has `floorHeight` for its
+  placeholder; promote it to the real thing, and an item let go over the room
+  drops to the floor with a short ease-out and a small squash. Let go *above*
+  the floor line, it falls to it; let go below, it stays where it is (that is the
+  front of the room, and a child arranging a picnic in the foreground should be
+  allowed to).
+- **Furniture can have a top.** `FurnitureDefinition` gains
+  `surface: CGFloat?` — how far up its own height its top is, `nil` for something
+  with no top. A table gets `0.9`, a rug `0.05`, a stove `1.0`, a bed `0.6`. Drop
+  an item over a piece with a top and it lands *on* the top rather than falling
+  past it to the floor, and it draws in front of that piece.
 
-Refactor only when the next concrete feature makes the existing implementation meaningfully awkward.
+Same bargain as everything else: the table says it has a top and how high;
+nothing has to know that a cake goes on tables.
 
----
+*Touches:* `RoomCatalog.swift`, `GameScene+Items.swift` (`settleItem`,
+`clampedItemPosition`), `GameScene+Room.swift`.
 
-# Milestone 0 — Project Exists
+### 5. Celebration when a chain tops out (S)
 
-## Goal
+Merging into a Crown or a Wedding Cake is currently indistinguishable from
+merging into a Fancy Bow. Since `ItemCatalog.chains` already knows the top of
+every chain, `mergesInto == nil` is a free trigger: a burst of confetti particles
+in the item's own `placeholderColor`, a fanfare, and the new item scaling up
+bigger before settling. Ten lines, and it gives the merging a point.
 
-Create an Xcode project that launches successfully.
-
-## Requirements
-
-- App name: **Merge House**
-- Swift
-- SwiftUI app lifecycle
-- Universal iOS/iPadOS target where practical.
-- Prefer landscape on iPad for the game experience.
-- Initial screen may be plain.
-
-## Visible Result
-
-Opening the app shows:
-
-```text
-Merge House
-Prototype
-```
-
-## Acceptance Criteria
-
-- Builds successfully.
-- Runs in an iPad simulator.
-- App launches without errors.
-- The words `Merge House` are visible.
-- No game architecture is required yet.
+*Touches:* `GameScene+Items.swift` (`merge`).
 
 ---
 
-# Milestone 1 — Main Menu
+## Tier 2 — New toys out of systems that already exist
 
-## Goal
+### 6. Mixing: two *different* things that go together (M)
 
-Create the first real screen.
+The three frostings are currently the odd ones out — nothing merges into them,
+they merge into nothing, and putting one on a cake does nothing. That is a hole
+with an obvious floor under it.
 
-## Requirements
-
-Show:
-
-- `Merge House`
-- one `Play` button
-
-Do not add settings, profiles, credits, saves, or other menu options.
-
-## Interaction
-
-Tap `Play` to navigate to a placeholder game screen.
-
-## Acceptance Criteria
-
-- App launches to the menu.
-- Play button works.
-- Back navigation from the game screen is possible.
-
----
-
-# Milestone 2 — Empty Room
-
-## Goal
-
-Make the user feel like they have entered the dollhouse.
-
-## Requirements
-
-Create the gameplay view.
-
-Use SpriteKit for the interactive game area.
-
-Show:
-
-- a large placeholder rectangle representing the room,
-- label: `Bedroom`,
-- a visually distinct floor/wall area if easy,
-- a way to return to the main menu.
-
-No character yet.
-
-## Layout
-
-iPad landscape is the reference layout.
-
-The room should occupy most of the screen.
-
-## Acceptance Criteria
-
-- Play opens the room.
-- The room fills the expected game area on iPad.
-- Rotation/layout does not visibly break the scene.
-- Returning to the menu works.
-
----
-
-# Milestone 3 — Character Appears
-
-## Goal
-
-Put the first "person" in the dollhouse.
-
-## Requirements
-
-Add one placeholder character.
-
-Representation can be:
-
-- rounded rectangle,
-- circle,
-- simple body made of shapes.
-
-Label it:
-
-`Girl`
-
-No animation.
-
-No movement yet.
-
-## Acceptance Criteria
-
-- Character is visible in the room.
-- Character cannot accidentally render underneath the background.
-- Character size is reasonable for future furniture interactions.
-
----
-
-# Milestone 4 — Drag the Character
-
-## Goal
-
-Make the room interactive for the first time.
-
-## Requirements
-
-The character can be:
-
-- touched,
-- dragged,
-- released.
-
-After release, it stays at the dropped position.
-
-The character must remain within the room's playable bounds.
-
-Do not add walking animation.
-
-## Acceptance Criteria
-
-- Drag feels responsive with a finger.
-- Character follows the drag.
-- Character stays where dropped.
-- Character cannot be lost outside the room.
-
-## First Kid Demo
-
-This is an important demo checkpoint.
-
-The child should now be able to:
-
-1. Open Merge House.
-2. Tap Play.
-3. See a bedroom.
-4. Move the character around.
-
----
-
-# Milestone 5 — Placeholder Furniture
-
-## Goal
-
-Give the room recognizable dollhouse objects.
-
-## Requirements
-
-Add three non-interactive placeholder objects:
-
-- Bed
-- Chair
-- Table
-
-Represent each with labeled rectangles/shapes.
-
-Position them in sensible locations in the room.
-
-Do not make the furniture movable yet unless required by a later milestone.
-
-## Acceptance Criteria
-
-- All three pieces are visible.
-- Their positions make the room understandable.
-- Character can still be dragged freely.
-
----
-
-# Milestone 6 — Character Uses Furniture
-
-## Goal
-
-Introduce the first dollhouse-specific interaction.
-
-## Requirements
-
-### Bed
-
-Dragging the character onto the bed should snap the character to a defined bed position.
-
-The character may:
-
-- rotate 90 degrees,
-- change its label to `Sleeping`,
-- or otherwise visibly indicate the state.
-
-### Chair
-
-Dragging the character onto the chair should snap it to a defined chair position.
-
-The character may change its label to `Sitting`.
-
-Do not create animation frames.
-
-Do not require furniture artwork.
-
-## Acceptance Criteria
-
-- Bed interaction is obvious.
-- Chair interaction is obvious.
-- Character can be picked up again afterward.
-- Character can return to normal free placement.
-
----
-
-# Milestone 7 — Add the Stuff Area
-
-## Goal
-
-Create the second major part of the screen: where mergeable items live.
-
-## Layout
-
-Split the gameplay screen conceptually into:
-
-```text
-┌────────────────────────────────────┐
-│                                    │
-│              BEDROOM               │
-│                                    │
-│   Bed       Girl        Chair      │
-│                         Table      │
-│                                    │
-├────────────────────────────────────┤
-│ Stuff                              │
-│                                    │
-│                 [ Get Stuff ]      │
-└────────────────────────────────────┘
-```
-
-The room should still get the majority of screen space.
-
-## Requirements
-
-- A clearly distinct bottom area labeled `Stuff`.
-- A `Get Stuff` button.
-- Button does not need to do anything yet.
-
-## iPhone
-
-Adapt this layout rather than creating a separate implementation.
-
-If space is limited, the Stuff area may become proportionally smaller or scrollable later.
-
-## Acceptance Criteria
-
-- Bedroom and Stuff area are visually distinct.
-- Existing character/furniture interaction still works.
-- Get Stuff button is visible and tappable.
-
----
-
-# Milestone 8 — Spawn the First Item
-
-## Goal
-
-Make `Get Stuff` produce something.
-
-## Requirements
-
-Each tap creates a placeholder:
-
-`Little Teddy`
-
-For now, always create the same item.
-
-Spawn it somewhere sensible within the Stuff area.
-
-Do not merge yet.
-
-## Acceptance Criteria
-
-- Tapping Get Stuff creates a teddy.
-- Multiple teddies can exist.
-- New objects remain inside the Stuff area.
-
----
-
-# Milestone 9 — Drag Items
-
-## Goal
-
-Allow loose objects to behave like physical game pieces.
-
-## Requirements
-
-Teddies can be dragged within the Stuff area.
-
-They should stay inside valid game bounds.
-
-If easy, allow a teddy to be dragged into the Bedroom as well, but this is optional until later.
-
-## Acceptance Criteria
-
-- Individual teddy objects can be selected reliably.
-- Multiple objects can coexist.
-- Dragging one does not accidentally move another.
-
----
-
-# Milestone 10 — First Merge
-
-## Goal
-
-Implement the defining mechanic of Merge House.
-
-## Requirements
-
-Two identical `Little Teddy` objects can be merged.
-
-Interaction:
-
-```text
-Little Teddy + Little Teddy
-            ↓
-         Big Teddy
-```
-
-The user should drag one teddy onto the other.
-
-On a valid merge:
-
-1. Remove both source objects.
-2. Create one `Big Teddy`.
-3. Place the result near the merge location.
-
-Add one very small visual feedback effect if easy, such as:
-
-- quick scale up/down,
-- brief bounce,
-- simple particle pop.
-
-Do not build an elaborate effects system.
-
-## Acceptance Criteria
-
-- Only two compatible objects merge.
-- Invalid overlaps do nothing destructive.
-- Two Little Teddies reliably produce one Big Teddy.
-- Merge result is draggable.
-
-## Second Kid Demo
-
-At this point, demonstrate:
-
-1. Enter house.
-2. Move character.
-3. Put character in bed/chair.
-4. Tap Get Stuff twice.
-5. Drag the two teddies together.
-6. Show the new teddy.
-
----
-
-# Milestone 11 — Complete One Merge Chain
-
-## Goal
-
-Prove merging can have progression.
-
-## Chain
-
-```text
-Little Teddy
-    ↓
-Big Teddy
-    ↓
-Giant Teddy
-```
-
-Rules:
-
-```text
-Little Teddy + Little Teddy → Big Teddy
-Big Teddy + Big Teddy       → Giant Teddy
-```
-
-`Giant Teddy + Giant Teddy` does nothing for now.
-
-## Acceptance Criteria
-
-- Full three-level chain works.
-- Each level is visually distinguishable by:
-  - size,
-  - label,
-  - or both.
-- No generic content editor is required yet.
-
----
-
-# Milestone 12 — Put Merge Objects in the House
-
-## Goal
-
-Connect the merge game to the dollhouse.
-
-## Requirements
-
-Allow merge items to cross from the Stuff area into the Bedroom.
-
-Once placed in the room:
-
-- they stay where dropped,
-- they remain draggable,
-- they are treated as dollhouse objects.
-
-Do not implement advanced inventory behavior.
-
-## Acceptance Criteria
-
-- A Giant Teddy can be created.
-- It can be dragged into the Bedroom.
-- It can be positioned near the character/furniture.
-- It remains there while the current game session runs.
-
-At this point the complete conceptual loop exists:
-
-```text
-Get Stuff
-   ↓
-Merge
-   ↓
-Create Better Object
-   ↓
-Bring It Into House
-   ↓
-Play
-```
-
----
-
-# Milestone 13 — Make Item Definitions Data-Driven
-
-## Goal
-
-Only now introduce a small reusable model for content.
-
-## Requirements
-
-Create a simple item definition model.
-
-Conceptually:
+Add one field to `ItemDefinition`:
 
 ```swift
-struct ItemDefinition {
-    let id: String
-    let name: String
-    let imageName: String?
-    let mergesInto: String?
+/// What this becomes when it is dropped on something else.
+/// The key is the other item's id. Merging is a pair of the same thing;
+/// this is a pair of different things, and it is how a Cake meets Frosting.
+let mixes: [String: String]   // other item id -> result id
+```
+
+Red Frosting + Cake → Red Cake. Bow + Teddy → Teddy With A Bow. Leaf + Cupcake →
+something silly. This is the cheapest possible source of *discovery*, which is the
+thing merge games actually run on, and it needs no new mechanic — `mergeTarget`
+already finds what an item was dropped on; it just currently insists the two be
+identical.
+
+Worth allowing mixing **in the room as well as on the shelf**, unlike merging.
+Merging in the room is banned for a good reason (things you arranged should not
+vanish into each other when pushed together), but mixing is deliberate enough —
+you have to bring a specific other thing to it — that a child doing it on the
+kitchen table is exactly the point.
+
+*Touches:* `ItemCatalog.swift`, `GameScene+Items.swift` (`mergeTarget`,
+`settleItem`, `merge`).
+
+### 7. Furniture that does something (M)
+
+Furniture is currently either something you sit on or scenery. A third kind: put
+an item *in* it and it does something.
+
+```swift
+enum FurnitureAction {
+    /// Swallows what you give it and gives it back when tapped. The Toy Box.
+    case keeps
+    /// Turns what you give it into something else, after a moment. The Stove.
+    case makes([String: String])
+    /// Deals one random item of a kind. The Fridge, the Wardrobe.
+    case gives([String])
 }
 ```
 
-The exact design may differ if the existing implementation suggests something cleaner.
+The Stove baking a Cupcake into a Cake, the Toy Box you can actually put toys in
+and get them out of, a Wardrobe that hands out a dress. Each is one entry in
+`FurnitureCatalog` and no gameplay code that knows what a stove is.
 
-The important behavior:
+`keeps` is the one worth doing first: children put things in boxes. It also
+quietly solves a real problem — a room can only hold so many visible things
+before it is a mess, and a box you can tip out is a better answer than a Tidy Up
+button.
 
-- `imageName == nil` renders a placeholder.
-- Providing an image later should replace the placeholder.
-- Merge behavior comes from item definitions rather than teddy-specific conditional logic.
+*Touches:* `RoomCatalog.swift`, `GameScene+Room.swift`, `GameScene+Items.swift`,
+one new field in `SavedItem` (what it is inside).
 
-Do not build a general-purpose content management system.
+### 8. Hang things on the wall (S–M)
 
-## Acceptance Criteria
+There is a `lona-misa.png` in the art folder — a painting — and nowhere to hang
+it. Rooms are currently all floor.
 
-- Existing teddy chain still works.
-- Teddy-specific merge logic is no longer scattered through interaction code.
-- Missing images render cleanly as placeholders.
+The split works the same way one step out: an item gains `hangs: true` (a
+painting, a clock, a mirror), and a room gains a wall region — everything above
+its floor line already is one. Drop a hangable item on the wall and it sticks
+where it was put instead of falling to the floor per #4; drop a non-hangable one
+there and it falls, as it should.
 
----
+This is a small change that makes a room look decorated rather than strewn, and
+it pairs with #4 so naturally that they should probably be built together.
 
-# Milestone 14 — Add Several Kid-Designed Merge Chains
+*Touches:* `ItemCatalog.swift`, `GameScene+Items.swift`.
 
-## Goal
+### 9. The family is in the room with you (L)
 
-Test whether the system is fun with a small amount of content.
+The single biggest change in how the game *feels*, and the one a child asks for
+first: Mum, Dad and the Baby all exist, and you can only ever be one of them,
+alone in the house.
 
-Ask the kids what they want.
+Let a character be **in a room without being the one you are playing**. Everyone
+in `CharacterCatalog` gets a place: which room they are in, where they stand,
+what they are wearing, what they are sitting on. You are one of them. Tapping
+another one swaps to them — which is what the Characters sheet does today, except
+now they stay behind rather than being replaced.
 
-Possible examples:
+The scene work is mostly generalising what is already there: `character`,
+`characterAnchor`, `characterUsing` and `characterNode` become a small
+`Resident` struct and a list of them, and `layoutCharacter` runs per resident.
+Carried items already store a carry style; they now also store *whose*.
 
-```text
-Bow → Fancy Bow → Tiara
+- **The Characters sheet** becomes "who is here and where they are" rather than a
+  picker, with a tap to become them and a drag to bring them along.
+- **The save** gains a residents list. This is the one idea here that needs a
+  `SavedGame.currentVersion` bump, which the design explicitly allows — an
+  unrecognised version starts fresh. Worth doing before there are saves anybody
+  minds losing.
 
-Chair → Nice Chair → Princess Chair
+*Touches:* `GameScene.swift`, `GameScene+Character.swift`, `GameScene+Sheets.swift`,
+`SaveGame.swift`. The biggest job on this list, and the most worth it.
 
-Cupcake → Cake → Giant Cake
-```
+### 10. The collection book (S–M)
 
-Use placeholders only.
+The Catalog sheet already lists every chain and every count. Give it a memory:
+things you have never made draw as a grey silhouette with a `?`, and the sheet
+reads "17 of 26 found" across the top. Making something for the first time gets
+its own small flourish.
 
-## Requirements
+A `Set<String>` of discovered ids in the save, and a handful of lines in
+`makeCatalogCell`. It costs almost nothing and it turns the Catalog from a
+developer readout into a reason to keep merging — the child now has something to
+fill in.
 
-Add approximately 2–3 additional chains.
+Two caveats: `Get Stuff` and the Catalog's own tap-to-deal must not count as
+discovery (only *making* a thing counts, or the book fills itself in), and there
+should be no scolding about what is missing — the silhouettes are an invitation.
 
-`Get Stuff` may now spawn a random level-one item.
-
-Avoid balancing systems.
-
-## Acceptance Criteria
-
-- Multiple chains coexist.
-- Only matching compatible levels merge.
-- It is easy to add another item definition.
-- The screen remains usable with several loose objects.
-
----
-
-# Milestone 15 — Minimal Local Save
-
-## Goal
-
-Avoid losing the child's creations every time the app closes.
-
-## Requirements
-
-Save only what is useful for the prototype.
-
-Suggested state:
-
-- unlocked/created item instances,
-- item type,
-- whether an item is in the Stuff area or Bedroom,
-- approximate placed position.
-
-Character position may be saved if trivial, but it is not important.
-
-Use simple local persistence.
-
-Do not add:
-
-- accounts,
-- iCloud,
-- CloudKit,
-- backend storage,
-- login.
-
-## Acceptance Criteria
-
-- Place several objects.
-- Close the app.
-- Reopen it.
-- Important objects are restored.
+*Touches:* `GameScene+Sheets.swift`, `SaveGame.swift` (an optional field, so no
+version bump).
 
 ---
 
-# Milestone 16 — Art Handoff Preparation
+## Tier 3 — Bigger swings, still not complicated
 
-## Goal
+### 11. Your own drawings become the game (M–L)
 
-Freeze feature development and turn the working prototype into a concrete art assignment for the kids.
+The whole project already runs on "drop a PNG in and it takes over". Right now
+that requires a Mac, Xcode and a parent. Let it happen from inside the app: pick
+a photo, or take one of a drawing on the kitchen table, and it becomes the
+artwork for a catalog entry.
 
-Do not add new gameplay during this milestone.
+The mechanism is nearly free, because `Artwork.named` is already the single door
+every drawing comes through and it already caches and trims. Give it one more
+place to look: a `drawings/` folder in Application Support, checked *before* the
+bundle, keyed by the same `imageName`. Photograph a drawing of a crown, save it
+as `crown`, and every Crown in the game is now that drawing — on the shelf, on
+the head, in the Catalog — with no code change and no rebuild, exactly as if the
+PNG had been dropped in.
 
-## Required Art Slots
+Two things make it work rather than just exist:
 
-Create a clear list of every asset currently needed.
+- **Cut out the background.** The trimming in `Artwork` only strips transparent
+  pixels, and a photo of paper has none. A rough white-ish-corner flood fill to
+  transparency is enough for a felt-tip drawing on white paper, and it is the
+  difference between "my crown" and "a photo of a table".
+- **Put it back.** A long-press on any Catalog cell offers *use my drawing* and
+  *use the original*, so an experiment is never destructive.
 
-Example:
+*Touches:* `Artwork.swift`, `GameScene+Sheets.swift`, `PhotosUI` for the picker.
+Needs a camera/photo permission string in the target settings.
 
-### Characters
+This is the idea I would pick if only one thing on this list could be built. It
+is the one that makes it *her* game rather than a game with her drawings in it.
 
-- `girl`
+### 12. The doll house (M)
 
-### Room
+`Rooms` is a list, which is a strange way to describe a house. Replace it — or
+better, add a second view of it — with the house seen from the front: every room
+as a lit box in a grid, drawn with its own backdrop, the furniture in it, the
+things left in it, and whoever is standing in it (see #9). Tap a room to walk
+there.
 
-- `bedroom-background`
+Everything needed to draw it exists — a room can already be rendered at any rect,
+and items already know which room they are in. It is mostly a layout, and it
+makes the house feel like a place rather than three unrelated backdrops.
 
-### Furniture
+*Touches:* `GameScene+Sheets.swift`, `GameScene+Room.swift`.
 
-- `bed`
-- `chair`
-- `table`
+### 13. Decorating the room (M)
 
-### Teddy Chain
+Rooms are fixed. Let them be changed:
 
-- `teddy-small`
-- `teddy-big`
-- `teddy-giant`
+- **Paint.** A wall colour and floor colour per room, chosen from a small palette,
+  saved. Trivial for the placeholder rooms; for a room with a backdrop PNG it
+  becomes a colour wash over the drawing, which is good enough and reads as
+  lighting.
+- **Day and night.** One toggle that tints the room blue and dims it, and turns
+  on any lamp in it. Pairs beautifully with the bed — putting the baby to bed and
+  turning the light off is a whole game on its own for a four-year-old.
 
-### Bow Chain
+Both are per-room and saved. Neither needs new art.
 
-- `bow`
-- `fancy-bow`
-- `tiara`
+*Touches:* `RoomCatalog.swift`, `GameScene+Room.swift`, `SaveGame.swift`.
 
-Continue for all prototype items.
+### 14. Play mode, and a toolbar that has room to grow (S)
 
----
+Eight buttons in two columns is full, and half of them — Tidy Up, Merge All,
+Labels, the Catalog's tap-to-deal — exist to poke at the prototype rather than to
+be played with. Adding a mute button, a night toggle and a house view to that
+grid makes it worse.
 
-## Asset Contract
+Split it: a **Play** toolbar with the four things a child uses (Get Stuff,
+Rooms, Characters, Trash) and a small toggle that reveals the **Explore** tools
+behind it. The state is saved, so the game opens the way it was left. It costs an
+afternoon, it makes room for everything above, and it is the difference between a
+prototype with a debug menu and a toy.
 
-Define a simple asset contract for the kids and for later integration.
+*Touches:* `GameScene+Stuff.swift`.
 
-Prefer:
+### 15. Names (S)
 
-- PNG
-- transparent background for characters, furniture, and loose items
-- consistent canvas dimensions within an asset category
-- artwork centered with reasonable transparent padding
-- avoid text inside the artwork
-- filenames matching the asset list
+Let the Girl be called by the name of the child playing. One tap on a character
+in the Characters sheet, a text field, and it is saved. The house gets a name
+too, on the menu. Nothing mechanical changes; it is the cheapest ownership on
+this list.
 
-The room background may be an opaque full-frame image.
-
-Exact pixel dimensions should be chosen based on the implemented scene rather than guessed early.
-
-Create an `ART_ASSETS.md` file at this milestone containing:
-
-1. every required image,
-2. target canvas dimensions,
-3. example screenshot showing where each category appears,
-4. filename for each asset,
-5. whether transparency is required.
-
----
-
-# Milestone 17 — First Real Kid Art
-
-## Goal
-
-Replace exactly one placeholder with a real drawing.
-
-Start with something simple, for example:
-
-`teddy-small.png`
-
-## Requirements
-
-- Import the PNG into the asset catalog.
-- Associate it with the existing item definition.
-- Do not change merge logic.
-- Placeholder fallback must continue to work for every asset that has not yet been drawn.
-
-## Acceptance Criteria
-
-The game may now contain:
-
-```text
-real teddy art
-placeholder Big Teddy
-placeholder Giant Teddy
-placeholder furniture
-placeholder character
-```
-
-That mixed state is expected and supported.
+*Touches:* `GameScene+Sheets.swift`, `SaveGame.swift`.
 
 ---
 
-# Prototype Complete
+## What needs assets, and what does not
 
-The initial prototype is complete when all of the following are true:
+Worth reading the list on this axis too, because "more art" is the constraint
+that actually binds here.
 
-- Merge House launches on iPad.
-- Main menu works.
-- One bedroom exists.
-- One character can be dragged.
-- Character can use at least the bed and chair.
-- A Stuff area exists.
-- Items can spawn.
-- Items can be dragged.
-- Matching items merge.
-- At least several three-level merge chains exist.
-- Merged objects can be brought into the room.
-- Basic game state persists locally.
-- Every drawable object has a documented art slot.
-- Missing art automatically falls back to placeholders.
-- One real kid-created PNG can replace one placeholder without gameplay changes.
+**Nothing below is blocked on an asset.** The placeholder rule covers everything
+new the same way it covers drawings: a sound with no file behind it is silence, a
+wallpaper with no file is a colour, a face with no file is the face you have. So
+every idea can be built to completion, played, and judged before anybody draws or
+records anything.
 
-At that point, stop adding systems and let the kids make art.
+| Idea | Needs a new asset? |
+| --- | --- |
+| #2 alive, #3 walk, #4 floors, #5 confetti | **No.** All of it is `SKAction`s on the sprite already there — bob, lean, squash, rotate — plus shapes for bubbles and confetti. |
+| #6 mixing | Only the *results*. A Red Cake with no drawing is a captioned box, which is playable but dull, so this one is best built alongside the art for whatever it makes. |
+| #8 wall, #10 book, #12 doll house, #14 toolbar, #15 names | **No.** All of it is layout over drawings that exist. The book's silhouettes are the existing art, flattened to grey. |
+| #13 decorating | **No.** Paint and night are colour washes over what is already drawn. |
+| #7 furniture, #9 family | **No new art needed to build them** — every character and every piece of furniture in them already exists or already placeholders. |
+| #11 own drawings | **No** — it is the feature that *makes* assets. |
+| #1 sound | **Yes, this is the only one.** See below. |
 
----
+### The one exception, and why it is cheaper than it looks
 
-# Explicitly Out of Scope for This Prototype
+Sound is the only idea here that genuinely cannot be finished without new files.
+But they are not files that compete with the drawing, and there are three ways to
+get them:
 
-Do not implement these unless requested after the initial prototype is validated:
+1. **Synthesize them.** A merge pop is a sine blip with a fast envelope, pitched
+   by merge level. `AVAudioEngine` with a source node, no files at all, and the
+   "a Crown sounds grander than a Bow" behaviour comes free because pitch is a
+   parameter rather than a recording. This is the one to do.
+2. **Record them.** A child making the pop noise with her mouth is free, takes an
+   afternoon, and is the most on-theme audio this game could possibly have.
+3. **A CC0 pack.** Kenney's audio sets are public domain and about the right
+   register.
 
-- multiple rooms,
-- character customization,
-- multiple characters,
-- clothing system,
-- pets,
-- character animation,
-- complex furniture animation,
-- quests,
-- story,
-- currency,
-- energy,
-- timers,
-- purchases,
-- ads,
-- Game Center,
-- achievements,
-- online multiplayer,
-- cloud saves,
-- accounts,
-- backend services,
-- procedural content,
-- complex sound system,
-- production-quality visual effects.
+### The one place #2 is not free
 
-These are possible future features, not prototype requirements.
+A character is a single flat PNG, so a *real* blink — or any change of
+expression — is a second drawing, not a transform. What #2 describes is a
+blink-scale: a quick squash of the whole figure, which reads as alive without
+touching the face.
+
+If expressions are wanted later, the shape is the one the catalogs already use:
+`imageName` becomes a small optional set — `girl`, `girl-blink`, `girl-happy` —
+each falling back to the base drawing when its file is missing, so a character
+with one drawing keeps working and a character with four gets a face. Worth
+leaving room for. Not worth building until somebody wants to draw the four.
 
 ---
 
-# Guiding Principle
+## What I would build, in order
 
-At every point, prefer:
+1. **Sound** (#1) and **the character being alive** (#2) — one weekend, and the
+   game stops feeling like a diagram.
+2. **Things stand on the floor** (#4) with **hanging things on the wall** (#8) —
+   the rooms start looking arranged rather than strewn.
+3. **Play mode** (#14) — a small job, but everything after this needs somewhere
+   to put a button.
+4. **Mixing** (#6) and **the collection book** (#10) — a reason to keep merging.
+5. **The family in the room** (#9) — the big one.
+6. **Your own drawings** (#11) — the one that makes it hers.
 
-> **Something the child can see and touch today**
+Tap-to-walk (#3), celebrations (#5), furniture that does something (#7), the
+doll house (#12), decorating (#13) and names (#15) can be slotted in wherever
+they are wanted; none of them blocks anything else.
 
-over:
+---
 
-> **Infrastructure that might be useful later.**
+## Deliberately not on this list
 
-The purpose of the prototype is not to prove that the architecture can support a large game.
+The original plan's list of things to refuse still stands, and it stands harder
+now that the game is fun: no currencies, no energy, no timers you wait out, no
+daily rewards, no quests, no store, no scores, no accounts, no networking, no
+ads, no analytics. A merge game for a child should have nothing in it that is
+trying to get her to come back tomorrow — she will or she will not, and either
+is fine.
 
-The purpose is to find out what **Merge House** actually wants to become.
+Two more, specific to where the code is now:
+
+- **No save migration.** An unrecognised `version` starting fresh is a deliberate
+  choice and a good one. If #9 needs a version bump, take it now while the saves
+  are cheap, rather than growing a migration layer to avoid it.
+- **No animation framework, no ECS, no scene graph abstraction.** Everything
+  above is `SKAction`s and fields on a catalog struct. The reason this codebase is
+  pleasant to add to is that there is nothing between an idea and the thing that
+  draws it.

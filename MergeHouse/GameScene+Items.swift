@@ -202,8 +202,9 @@ extension GameScene {
     }
 
     /// Adds the node for one item under whatever it currently belongs to. A
-    /// carried item goes under the character, which is what makes it walk, sit
-    /// and lie down with them for free.
+    /// carried item goes under the character — under the part of them that
+    /// leans and blinks, so it walks, sits, lies down and tips over with them
+    /// for free.
     @discardableResult
     func addItemNode(for item: Item) -> SKNode {
         let node = makeItemNode(for: item)
@@ -211,7 +212,7 @@ extension GameScene {
         if item.location.carryStyle == nil {
             itemsNode.addChild(node)
         } else {
-            characterNode.addChild(node)
+            characterLeanNode.addChild(node)
         }
         return node
     }
@@ -315,6 +316,11 @@ extension GameScene {
         refreshStuffDensity()
 
         setNeedsSave()
+
+        // What they think of it. The item says which reaction it is worth and
+        // the bubble knows how to draw that; an item that says nothing still
+        // gets a sparkle, because being handed something is worth something.
+        showReaction(items[index].definition.reaction)
 
         guard let node = itemNodes[id] else { return }
         node.setScale(0.6)

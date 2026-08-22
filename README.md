@@ -1,14 +1,13 @@
 # Merge House
 
-Prototype built one milestone at a time — see `plan.md`.
+The prototype loop is finished: get stuff, merge it, carry it, walk it into a
+room, and find it still there next time you open the app. Several merge chains,
+several characters and several rooms exist, and the kids are drawing the art.
 
-**Current milestone: 15 — Minimal Local Save.** Milestone 14 (several merge
-chains) is done, plus a first pass at carrying: the character can wear and hold
-what you merge, and what you made is still there next time you open the app.
-
-There is now more than one room, which `plan.md` lists as out of scope for the
-prototype "unless requested" — it was requested. Everything else on that list is
-still out.
+Anything without artwork yet draws as a placeholder that captions itself with the
+filename that would replace it, so the art list lives in the app rather than in a
+document — open `Catalog`, `Characters` or `Rooms` to see what is still missing.
+Drop the PNG in and it takes over, with no code change.
 
 ## Explore tools
 
@@ -58,9 +57,27 @@ that looks wrong rather than teaching the hat about that character. Most
 characters need no entries at all, because a carry point is measured against the
 figure rather than against the empty space around it — see below.
 
-Still missing, and worth doing next: nothing is animated, a carry point is a
-single fixed spot rather than a pose, and the character has no reaction to what
-they are holding.
+## Being alive
+
+The character breathes, blinks, tips toward whatever is being held out to them,
+and says what they think of what they are given. All of it is `SKAction`s on the
+drawing that is already there — a character is one flat PNG, so a blink is a
+quick squash rather than a second drawing, and nothing here waits on any art.
+
+What they think of a thing is the same two-halves bargain that carrying strikes:
+
+- **The item says what kind of thing it is to be given.** `reaction: .love` in
+  `ItemCatalog` means "this is loved" and nothing more. `nil` — no particular
+  opinion — is a perfectly good answer.
+- **The character knows how to show that.** The bubble over their shoulder draws
+  a heart, a star, crumbs or a squiggle, and a sparkle for an item that said
+  nothing.
+
+So a Teddy never learns what a Baby is, a new item is welcomed by everyone in the
+game the day it is added, and no gameplay code has to know that a Cake is food.
+
+Still missing, and worth doing next: a carry point is a single fixed spot rather
+than a pose, and there is no sound.
 
 ## Rooms
 

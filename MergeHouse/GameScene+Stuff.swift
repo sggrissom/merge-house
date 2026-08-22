@@ -359,7 +359,7 @@ extension GameScene {
             dragTouch = nil
             dragSubject = nil
         }
-        highlightMergeTarget(nil)
+        highlightCombineTarget(nil)
         highlightTrash(false)
         highlightCharacter(false)
         // One crumple for the lot: emptying a shelf of twenty is one action, and

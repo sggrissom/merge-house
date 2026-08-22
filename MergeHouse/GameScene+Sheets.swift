@@ -4,17 +4,19 @@ import UIKit
 extension GameScene {
     // MARK: - Sheets
 
-    /// A full-screen sheet over the scene. Both of them answer a question the
-    /// prototype keeps raising — what is in this game, and who can I be — so
-    /// they share their chrome and differ only in what fills the body.
+    /// A full-screen sheet over the scene. All of them answer a question the
+    /// prototype keeps raising — what is in this game, who can I be, where can I
+    /// go — so they share their chrome and differ only in what fills the body.
     enum Sheet {
         case catalog
         case characters
+        case rooms
 
         var title: String {
             switch self {
             case .catalog: return "Catalog"
             case .characters: return "Characters"
+            case .rooms: return "Rooms"
             }
         }
 
@@ -22,6 +24,7 @@ extension GameScene {
             switch self {
             case .catalog: return "every chain, bottom to top — tap an item to deal one out"
             case .characters: return "tap someone to be them — art still to come is named below"
+            case .rooms: return "tap a room to go there — what you left in one stays there"
             }
         }
     }
@@ -104,6 +107,7 @@ extension GameScene {
         switch sheet {
         case .catalog: layoutCatalogChains(in: body)
         case .characters: layoutCharacterCells(in: body)
+        case .rooms: layoutRoomCells(in: body)
         }
     }
 
@@ -123,11 +127,14 @@ extension GameScene {
             case .characters:
                 guard let definition = CharacterCatalog.definition(id: id) else { return }
                 becomeCharacter(definition)
+            case .rooms:
+                guard let definition = RoomCatalog.definition(id: id) else { return }
+                goToRoom(definition)
             case nil:
                 return
             }
             // Rebuilt so the entry shows the tap landed — a count badge on the
-            // Catalog, the selection ring on a character.
+            // Catalog, the selection ring on a character or a room.
             layoutSheet()
             return
         }
@@ -378,6 +385,118 @@ extension GameScene {
     static let characterSelectedStroke =
         SKColor(red: 1.0, green: 0.86, blue: 0.42, alpha: 1)
 
+    // MARK: - Room picker
+
+    /// Where you can go. The same bargain again: every room is listed whether or
+    /// not it has been drawn, and going to one that has not puts you in its flat
+    /// wall and floor rather than nowhere at all.
+
+    /// A grid of every room, the one you are in ringed.
+    func layoutRoomCells(in body: CGRect) {
+        let rooms = RoomCatalog.all
+        guard !rooms.isEmpty else { return }
+
+        let columns = min(3, rooms.count)
+        let rows = Int(ceil(Double(rooms.count) / Double(columns)))
+        let cellWidth = body.width / CGFloat(columns)
+        let cellHeight = body.height / CGFloat(rows)
+
+        for (index, definition) in rooms.enumerated() {
+            let slot = CGRect(x: body.minX + CGFloat(index % columns) * cellWidth,
+                              y: body.maxY - CGFloat(index / columns + 1) * cellHeight,
+                              width: cellWidth, height: cellHeight)
+            let cell = slot.insetBy(dx: cellWidth * 0.07, dy: cellHeight * 0.08)
+            sheetNode.addChild(makeRoomCell(for: definition, in: cell))
+            sheetCells.append((cell, definition.id))
+        }
+    }
+
+    /// One entry: the room as you would actually find it — its backdrop or the
+    /// colours standing in for one — what is in it, and how much you have left
+    /// there.
+    func makeRoomCell(for definition: RoomDefinition, in cell: CGRect) -> SKNode {
+        let node = SKNode()
+        let isCurrent = definition.id == room.id
+
+        let background = SKShapeNode(rect: cell, cornerRadius: cell.height * 0.10)
+        background.fillColor = SKColor(white: 1, alpha: isCurrent ? 0.14 : 0.06)
+        background.strokeColor = isCurrent
+            ? Self.characterSelectedStroke
+            : SKColor(white: 1, alpha: 0.14)
+        background.lineWidth = isCurrent ? 5 : 2
+        node.addChild(background)
+
+        let nameSize = max(11, cell.height * 0.11)
+        let preview = CGRect(x: cell.minX + cell.width * 0.08,
+                             y: cell.minY + cell.height * 0.30,
+                             width: cell.width * 0.84,
+                             height: cell.height * 0.56)
+        // The room's own backdrop, cropped to the preview exactly the way it is
+        // cropped to the room — so what is shown here is what you will walk into.
+        if let backdrop = makeBackdrop(named: definition.imageName, in: preview) {
+            node.addChild(backdrop)
+        } else {
+            node.addChild(makePlaceholderRoom(for: definition, in: preview))
+        }
+
+        let name = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        name.text = definition.name
+        name.fontSize = nameSize
+        name.fontColor = SKColor(white: 0.95, alpha: 1)
+        name.verticalAlignmentMode = .center
+        name.horizontalAlignmentMode = .center
+        name.position = CGPoint(x: cell.midX, y: cell.minY + cell.height * 0.20)
+        shrinkToFit(name, width: cell.width * 0.92)
+        node.addChild(name)
+
+        let note = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        note.fontSize = nameSize * 0.78
+        note.verticalAlignmentMode = .center
+        note.horizontalAlignmentMode = .center
+        note.position = CGPoint(x: cell.midX, y: cell.minY + cell.height * 0.09)
+        if definition.artwork == nil {
+            note.text = definition.missingArtworkNote
+            note.fontColor = Self.sheetMissingArt
+        } else {
+            // What is in there, which is the other half of what makes one room
+            // different from the next.
+            note.text = definition.pieces.map { $0.definition.name.lowercased() }
+                .joined(separator: " · ")
+            note.fontColor = SKColor(white: 0.55, alpha: 1)
+        }
+        shrinkToFit(note, width: cell.width * 0.92)
+        node.addChild(note)
+
+        let left = items.filter { $0.location == .room && $0.room == definition.id }.count
+        if left > 0 {
+            let badge = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            badge.text = "\u{00D7}\(left)"
+            badge.fontSize = nameSize
+            badge.fontColor = SKColor(red: 1.0, green: 0.86, blue: 0.42, alpha: 1)
+            badge.verticalAlignmentMode = .top
+            badge.horizontalAlignmentMode = .left
+            badge.position = CGPoint(x: cell.minX + cell.width * 0.06,
+                                     y: cell.maxY - cell.height * 0.06)
+            node.addChild(badge)
+        }
+
+        if isCurrent {
+            let badge = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            badge.text = "here"
+            badge.fontSize = nameSize * 0.8
+            badge.fontColor = Self.characterSelectedStroke
+            badge.verticalAlignmentMode = .top
+            badge.horizontalAlignmentMode = .right
+            badge.position = CGPoint(x: cell.maxX - cell.width * 0.06,
+                                     y: cell.maxY - cell.height * 0.06)
+            node.addChild(badge)
+        }
+
+        return node
+    }
+
+    // MARK: - Becoming someone
+
     /// Switches who you are playing as, keeping where they were standing and
     /// whatever they were using — you are swapping the drawing, not restarting.
     func becomeCharacter(_ definition: CharacterDefinition) {
@@ -395,8 +514,8 @@ extension GameScene {
     /// Otherwise they simply stay where they were put.
     func settleCharacter() {
         highlightFurniture(nil)
-        guard let kind = dropTarget() else { return }
-        characterUsing = kind
+        guard let id = dropTarget() else { return }
+        characterUsing = id
         layoutCharacter()
     }
 }

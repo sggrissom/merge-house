@@ -86,8 +86,7 @@ extension GameScene {
             node.position = clampedDragPosition(target)
             // Keep the model in step so a rotation mid-drag does not snap it back.
             let carriedTo = self.location(forDropAt: node.position)
-            items[index].location = carriedTo
-            items[index].anchor = itemAnchor(for: node.position, in: carriedTo)
+            place(index, in: carriedTo, anchor: itemAnchor(for: node.position, in: carriedTo))
             let carry = carryTarget(for: items[index])
             highlightCharacter(carry != nil)
             highlightMergeTarget(carry == nil ? mergeTarget(for: items[index])?.id : nil)
@@ -119,18 +118,18 @@ extension GameScene {
         setNeedsSave()
     }
 
-    /// Which usable piece the character is currently over, if any.
+    /// The id of the usable piece the character is currently over, if any.
     ///
     /// This compares how much of them *overlaps* each piece rather than testing a
     /// single point. The origin is at the feet, so a point test only matched when
     /// grabbed low down — dragging the body onto the bed left the feet
     /// below it and nothing happened.
-    func dropTarget() -> FurnitureKind? {
+    func dropTarget() -> String? {
         let characterFrame = characterSceneFrame()
         let characterArea = characterFrame.width * characterFrame.height
-        var best: (kind: FurnitureKind, overlap: CGFloat)?
+        var best: (id: String, overlap: CGFloat)?
 
-        for piece in furniturePieces where piece.kind.characterLabel != nil {
+        for piece in furniturePieces where piece.definition.use != nil {
             let intersection = characterFrame.intersection(piece.rect)
             guard !intersection.isNull else { continue }
 
@@ -140,9 +139,9 @@ extension GameScene {
             guard overlap >= min(characterArea, pieceArea) * 0.25 else { continue }
             if let current = best, overlap <= current.overlap { continue }
 
-            best = (piece.kind, overlap)
+            best = (piece.id, overlap)
         }
 
-        return best?.kind
+        return best?.id
     }
 }

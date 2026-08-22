@@ -11,6 +11,7 @@ extension GameScene {
         case getStuff = "Get Stuff"
         case catalog = "Catalog"
         case characters = "Characters"
+        case rooms = "Rooms"
         case tidy = "Tidy Up"
         case mergeAll = "Merge All"
         case labels = "Labels"
@@ -21,6 +22,7 @@ extension GameScene {
             switch self {
             case .catalog: return "see everything"
             case .characters: return "pick who you are"
+            case .rooms: return "go somewhere else"
             case .trash: return "drop one, or tap to clear"
             default: return nil
             }
@@ -31,6 +33,7 @@ extension GameScene {
             case .getStuff: return SKColor(red: 0.35, green: 0.55, blue: 0.92, alpha: 1)
             case .catalog: return SKColor(red: 0.45, green: 0.40, blue: 0.78, alpha: 1)
             case .characters: return SKColor(red: 0.78, green: 0.40, blue: 0.58, alpha: 1)
+            case .rooms: return SKColor(red: 0.34, green: 0.52, blue: 0.72, alpha: 1)
             case .tidy: return SKColor(red: 0.28, green: 0.60, blue: 0.55, alpha: 1)
             case .mergeAll: return SKColor(red: 0.80, green: 0.58, blue: 0.24, alpha: 1)
             case .labels: return SKColor(red: 0.40, green: 0.44, blue: 0.50, alpha: 1)
@@ -240,10 +243,16 @@ extension GameScene {
     func refreshStuffCount() {
         let onShelf = items.filter { $0.location == .stuff }.count
         let carried = items.filter { $0.location.carryStyle != nil }.count
-        let inRoom = items.count - onShelf - carried
+        let inRoom = items.filter { $0.location == .room && $0.room == room.id }.count
+        // What is in the rooms you are not in has to be counted too, or the tally
+        // would say things had gone missing every time you walked out of one.
+        let elsewhere = items.count - onShelf - carried - inRoom
         var text = onShelf == 1 ? "1 item" : "\(onShelf) items"
         if inRoom > 0 {
-            text += " · \(inRoom) in the room"
+            text += " · \(inRoom) in the \(room.name.lowercased())"
+        }
+        if elsewhere > 0 {
+            text += " · \(elsewhere) in other rooms"
         }
         if carried > 0 {
             text += " · \(carried) on \(character.name)"
@@ -269,6 +278,7 @@ extension GameScene {
         case .getStuff: spawnItem()
         case .catalog: toggleSheet(.catalog)
         case .characters: toggleSheet(.characters)
+        case .rooms: toggleSheet(.rooms)
         case .tidy: tidyStuff()
         case .mergeAll: mergeEverything()
         case .labels: toggleItemLabels()

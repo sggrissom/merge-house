@@ -1,51 +1,29 @@
 import SpriteKit
 import UIKit
 
-/// The whole play area: the bedroom on top, the Stuff area below.
+/// The whole play area: whichever room you are in on top, the Stuff area below.
 /// Drawn from shapes and labels, with artwork swapped in wherever it exists.
 final class GameScene: SKScene {
 
-    // MARK: - Furniture model
+    // MARK: - Furniture in this room
 
-    enum FurnitureKind: String {
-        case bed = "Bed"
-        case chair = "Chair"
-        case table = "Table"
-
-        /// What the character's label reads while using this piece.
-        /// `nil` means the piece cannot be used.
-        var characterLabel: String? {
-            switch self {
-            case .bed: return "Sleeping"
-            case .chair: return "Sitting"
-            case .table: return nil
-            }
-        }
-
-        /// The character lies down on the bed and stays upright everywhere else.
-        var characterRotation: CGFloat {
-            self == .bed ? .pi / 2 : 0
-        }
-
-        var color: SKColor {
-            switch self {
-            case .bed: return SKColor(red: 0.55, green: 0.66, blue: 0.85, alpha: 1)
-            case .chair: return SKColor(red: 0.55, green: 0.75, blue: 0.58, alpha: 1)
-            case .table: return SKColor(red: 0.62, green: 0.45, blue: 0.31, alpha: 1)
-            }
-        }
-    }
-
+    /// One piece of furniture, placed. The catalog says what it is and the room
+    /// says whereabouts in itself it stands; this is that worked out against the
+    /// room's actual rect, which is the only form the scene ever needs.
     struct FurniturePiece {
-        let kind: FurnitureKind
+        /// Unique within the room, so two chairs are two different seats.
+        let id: String
+        let definition: FurnitureDefinition
         let rect: CGRect
     }
 
     // MARK: - Nodes and state
 
-    /// Room chrome (wall, floor, outline, title). Rebuilt whenever the scene resizes.
+    /// Room chrome (backdrop, outline, title). Rebuilt whenever the scene resizes
+    /// and whenever you go to another room.
     let roomNode = SKNode()
-    /// Placeholder furniture. Rebuilt whenever the scene resizes.
+    /// This room's furniture. Rebuilt whenever the scene resizes and whenever you
+    /// go to another room.
     let furnitureNode = SKNode()
     /// The character. A persistent container so it keeps its own state across
     /// resizes — and so carried items have something to be children of.
@@ -65,7 +43,7 @@ final class GameScene: SKScene {
     /// The Stuff area below the room, where mergeable items will live.
     var stuffRect: CGRect = .zero
     var furniturePieces: [FurniturePiece] = []
-    var furnitureBoxes: [FurnitureKind: SKShapeNode] = [:]
+    var furnitureBoxes: [String: SKNode] = [:]
 
     /// Every tool button in the Stuff panel, with the rect it answers taps in.
     var toolButtons: [(tool: StuffTool, node: SKNode, rect: CGRect)] = []
@@ -80,12 +58,13 @@ final class GameScene: SKScene {
     var stuffCountFontSize: CGFloat = 0
     /// Number of rows currently used by the Stuff shelf.
     var stuffRows = GameScene.minStuffRows
-    /// The open sheet — the Catalog or the character picker. Empty while closed.
+    /// The open sheet — the Catalog, the character picker or the room picker.
+    /// Empty while closed.
     let sheetNode = SKNode()
     var openSheet: Sheet?
     /// Where each entry in the open sheet sits, so a tap can act on it. What the
-    /// id means is the open sheet's business: an item to deal out, or a character
-    /// to become.
+    /// id means is the open sheet's business: an item to deal out, a character to
+    /// become, or a room to go to.
     var sheetCells: [(rect: CGRect, id: String)] = []
     var sheetRect: CGRect = .zero
     var sheetCloseRect: CGRect = .zero
@@ -109,14 +88,28 @@ final class GameScene: SKScene {
     /// Where the character stands, as a fraction of `roomRect`, so a resize or
     /// rotation keeps it in the same relative spot instead of resetting it.
     var characterAnchor = CGPoint(x: 0.5, y: 0.10)
-    /// The piece the character is currently using, if any. While set, their
-    /// position comes from that piece rather than from `characterAnchor`.
-    var characterUsing: FurnitureKind?
+    /// The id of the piece the character is currently using, if any. While it
+    /// names a piece of the room you are in, their position comes from that
+    /// piece rather than from `characterAnchor`.
+    var characterUsing: String?
+
+    /// The piece that id actually refers to, if the room you are in has one. A
+    /// piece that is not in this room simply leaves the character standing —
+    /// which is what makes walking out of a room you were sitting down in safe.
+    var usingPiece: FurniturePiece? {
+        guard let id = characterUsing else { return nil }
+        return piece(for: id)
+    }
+
     /// The character's bounds relative to its own origin (its feet), used for clamping.
     var characterLocalFrame: CGRect = .zero
     /// Who you are playing as. Everything about how the character draws comes
     /// from here, so switching is this one assignment plus a relayout.
     var character = CharacterCatalog.starting
+    /// Which room you are in. Everything about how the room draws and what is in
+    /// it comes from here, so going next door is this one assignment plus a
+    /// relayout — the same bargain switching character strikes.
+    var room = RoomCatalog.starting
     /// How tall the character currently draws. Carry points are fractions of
     /// this, so it is the one number that turns a `CarryPoint` into a position.
     var characterHeight: CGFloat = 0

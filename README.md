@@ -6,6 +6,10 @@ Prototype built one milestone at a time — see `plan.md`.
 chains) is done, plus a first pass at carrying: the character can wear and hold
 what you merge, and what you made is still there next time you open the app.
 
+There is now more than one room, which `plan.md` lists as out of scope for the
+prototype "unless requested" — it was requested. Everything else on that list is
+still out.
+
 ## Explore tools
 
 The Stuff panel's toolbar exists to poke at the prototype, not because a finished
@@ -16,6 +20,7 @@ game would have any of it:
 | **Get Stuff** | Deals one random level-one item onto the shelf. |
 | **Catalog** | Every merge chain on one sheet: the artwork that exists, the filename of the artwork that does not, and how many of each are loose. Tap an entry to deal one out — no merging up to it first. |
 | **Characters** | Everyone you can be, on the same kind of sheet. Tap one to switch to them; they keep where the character was standing and whatever it was using. |
+| **Rooms** | Everywhere you can go, on the same kind of sheet: the backdrop that exists, the filename of the one that does not, what furniture is in each and how much you have left there. Tap one to go there. |
 | **Tidy Up** | Re-lays the shelf out in catalog order, so a shoved-around pile becomes readable again. |
 | **Merge All** | Merges every pair it can, repeatedly, until nothing else combines. The quick way to see the top of a chain. |
 | **Labels** | Toggles the name tag under each item. |
@@ -57,6 +62,37 @@ Still missing, and worth doing next: nothing is animated, a carry point is a
 single fixed spot rather than a pose, and the character has no reaction to what
 they are holding.
 
+## Rooms
+
+There is a house rather than a bedroom, and `Rooms` is how you walk around it.
+The split is the same one carrying uses, one step out:
+
+- **The furniture says what kind of thing it is.** `FurnitureCatalog` has a Bed
+  that you lie on and are said to be `Sleeping`, a Rug you sit on and are
+  `Playing`, a Table you cannot get on at all. That is the whole of what a Bed
+  knows.
+- **The room says where that is in it.** `RoomCatalog` lists a `FurniturePlacement`
+  per piece — how far across, how far up, how big — all fractions of the room, so
+  one line means the same corner on a phone, on an iPad and after a rotation.
+
+So a new piece of furniture works in every room that lists it, and a new room
+furnishes itself out of pieces that already know how they are used. A room with
+two chairs gets two seats, told apart as `chair` and `chair-2`.
+
+What travels and what stays is worth being exact about, because it is the only
+thing about rooms a child will actually notice:
+
+| | Going next door |
+| --- | --- |
+| The shelf of loose stuff | Comes with you — it is your pocket, not a piece of furniture. |
+| What you are wearing and holding | Comes with you. |
+| What you put down in a room | Stays in that room, exactly where you left it. |
+| What you were sitting on | You stand up on the way out. The chair is still there when you come back. |
+
+A room you are not in is still in the save and still counted — the Stuff readout
+says "3 in other rooms" rather than quietly losing them — it simply is not drawn,
+because you are not in it.
+
 ## How big things are
 
 Two rules, and between them they are the whole answer to why something looks the
@@ -93,9 +129,9 @@ range of merge levels at its own strength:
 ## Saving
 
 What you made is written to `merge-house-save.json` in the app's Application
-Support directory, and read back on launch: every loose item and where it is, what
-the character is wearing and holding, who you are playing as, and what they are
-sitting on.
+Support directory, and read back on launch: every loose item, where it is and
+which room that was, what the character is wearing and holding, who you are
+playing as, which room you are in, and what they are sitting on.
 
 Two decisions worth knowing about:
 
@@ -106,9 +142,10 @@ Two decisions worth knowing about:
 - **It survives you editing the catalogs.** That is the whole premise of this
   prototype, so the save stores item and character *ids* rather than positions in
   a list. An id that no longer exists is dropped and everything else is kept; a
-  character or a piece of furniture that has gone falls back rather than throwing
-  the save away; an item that is no longer something you can wear is put down on
-  the floor rather than lost. There is no migration and there should not be one —
+  character, a room or a piece of furniture that has gone falls back rather than
+  throwing the save away; an item that is no longer something you can wear is put
+  down on the floor rather than lost, and one left in a room that has since been
+  deleted turns up in the room you load into rather than going with it. There is no migration and there should not be one —
   an unrecognised `version` starts fresh.
 
 The save is written at most once a second while anything has changed, and
@@ -126,9 +163,20 @@ Both catalogs work the same way, and neither needs the artwork to exist first.
   the drawing will use, a `scale` relative to the default, the two colours their
   stick figure is drawn in until then, and any `carryPoints` the defaults get
   wrong for them.
+- **A room** is one entry in `RoomCatalog.all`: a name, the `imageName` its
+  backdrop will use, the wall and floor colours it stands in until then, and the
+  furniture in it. Nothing else knows what a Kitchen is.
+- **A piece of furniture** is one entry in `FurnitureCatalog.all`: a name, an
+  `imageName`, a colour for the box it draws as until that exists, and a
+  `FurnitureUse` — the pose it puts a character in and what they are said to be
+  doing — or `nil` for something you only walk past.
 
 Anything with no artwork yet draws as a placeholder and captions itself with the
-filename that would replace it. Drop `<imageName>.png` into the target's
+filename that would replace it — a room without a backdrop is its own two colours
+with `needs kitchen.png` under its name. The one exception is furniture standing
+in a room that *has* been drawn: the backdrop has already drawn its own bed, and
+the box on top of it is only there to be sat on, so it does not ask for artwork
+that is on the screen already. Drop `<imageName>.png` into the target's
 resources and it takes over — no code change.
 
 ## Build & run

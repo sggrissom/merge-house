@@ -89,6 +89,10 @@ extension GameScene {
             place(index, in: carriedTo, anchor: itemAnchor(for: node.position, in: carriedTo))
             let carry = carryTarget(for: items[index])
             highlightCharacter(carry != nil)
+            // They tip toward whatever is being held out to them, whether or not
+            // it is a thing they could actually take: a Cake carried past is
+            // still worth turning your head for.
+            leanCharacter(toward: node.position)
             highlightMergeTarget(carry == nil ? mergeTarget(for: items[index])?.id : nil)
             highlightTrash(isOverTrash(node.position))
         }
@@ -107,6 +111,7 @@ extension GameScene {
         let subject = dragSubject
         dragTouch = nil
         dragSubject = nil
+        leanCharacter(toward: nil)
         guard let subject = subject else { return }
 
         switch subject {

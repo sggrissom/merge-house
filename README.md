@@ -57,9 +57,27 @@ that looks wrong rather than teaching the hat about that character. Most
 characters need no entries at all, because a carry point is measured against the
 figure rather than against the empty space around it — see below.
 
-Still missing, and worth doing next: nothing is animated, a carry point is a
-single fixed spot rather than a pose, and the character has no reaction to what
-they are holding.
+## Being alive
+
+The character breathes, blinks, tips toward whatever is being held out to them,
+and says what they think of what they are given. All of it is `SKAction`s on the
+drawing that is already there — a character is one flat PNG, so a blink is a
+quick squash rather than a second drawing, and nothing here waits on any art.
+
+What they think of a thing is the same two-halves bargain that carrying strikes:
+
+- **The item says what kind of thing it is to be given.** `reaction: .love` in
+  `ItemCatalog` means "this is loved" and nothing more. `nil` — no particular
+  opinion — is a perfectly good answer.
+- **The character knows how to show that.** The bubble over their shoulder draws
+  a heart, a star, crumbs or a squiggle, and a sparkle for an item that said
+  nothing.
+
+So a Teddy never learns what a Baby is, a new item is welcomed by everyone in the
+game the day it is added, and no gameplay code has to know that a Cake is food.
+
+Still missing, and worth doing next: a carry point is a single fixed spot rather
+than a pose, and there is no sound.
 
 ## Rooms
 

@@ -28,9 +28,15 @@ final class GameScene: SKScene {
     /// The character. A persistent container so it keeps its own state across
     /// resizes — and so carried items have something to be children of.
     let characterNode = SKNode()
+    /// The whole figure — drawing, name tag and everything they are carrying —
+    /// as one thing that can be tipped and squashed. Being alive is done here
+    /// rather than on `characterNode` so that where they stand and how they are
+    /// posed on the furniture stay exactly what the game set them to, and so a
+    /// lean takes the hat and the teddy with it.
+    let characterLeanNode = SKNode()
     /// The character's own drawing and name tag, rebuilt on every layout.
-    /// Held apart from `characterNode` so that whatever they are carrying — which
-    /// lives alongside it — is not wiped out every time they are redrawn.
+    /// Held apart from `characterLeanNode` so that whatever they are carrying —
+    /// which lives alongside it — is not wiped out every time they are redrawn.
     let characterBodyNode = SKNode()
     /// The Stuff area panel and its button. Rebuilt whenever the scene resizes.
     let stuffNode = SKNode()
@@ -113,6 +119,10 @@ final class GameScene: SKScene {
     /// How tall the character currently draws. Carry points are fractions of
     /// this, so it is the one number that turns a `CarryPoint` into a position.
     var characterHeight: CGFloat = 0
+    /// How far the figure is currently tipped over, in radians. Held so that a
+    /// drag passing by only restarts the lean when it changes side, rather than
+    /// on every frame of the drag.
+    var characterLean: CGFloat = 0
 
     /// What the current drag is moving.
     enum DragSubject {
@@ -145,7 +155,8 @@ final class GameScene: SKScene {
         addChild(roomNode)
         addChild(furnitureNode)
         addChild(characterNode)
-        characterNode.addChild(characterBodyNode)
+        characterNode.addChild(characterLeanNode)
+        characterLeanNode.addChild(characterBodyNode)
         addChild(stuffNode)
         addChild(itemsNode)
         addChild(sheetNode)

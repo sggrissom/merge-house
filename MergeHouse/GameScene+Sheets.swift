@@ -48,6 +48,8 @@ extension GameScene {
         sheetCells = []
         sheetCloseRect = .zero
         sheetRect = .zero
+        catalogPreviousRect = .zero
+        catalogNextRect = .zero
     }
 
     /// The dimmed surround, the panel, its heading and its Close button. Whatever
@@ -57,6 +59,8 @@ extension GameScene {
 
         sheetNode.removeAllChildren()
         sheetCells = []
+        catalogPreviousRect = .zero
+        catalogNextRect = .zero
 
         let dim = SKShapeNode(rect: CGRect(origin: .zero, size: size))
         dim.fillColor = SKColor(white: 0, alpha: 0.62)
@@ -119,6 +123,20 @@ extension GameScene {
             return
         }
 
+        if openSheet == .catalog, !catalogPreviousRect.isEmpty,
+           catalogPreviousRect.contains(location) {
+            catalogPage -= 1
+            layoutSheet()
+            return
+        }
+
+        if openSheet == .catalog, !catalogNextRect.isEmpty,
+           catalogNextRect.contains(location) {
+            catalogPage += 1
+            layoutSheet()
+            return
+        }
+
         if let id = sheetCells.first(where: { $0.rect.contains(location) })?.id {
             switch openSheet {
             case .catalog:
@@ -152,21 +170,68 @@ extension GameScene {
     /// can be looked at without merging up to it.
 
     /// One row per chain, one column per merge level, columns aligned across rows
-    /// so chains of different lengths can be compared at a glance.
+    /// so chains of different lengths can be compared at a glance. Only five
+    /// rows are shown at once: catalog growth then adds pages, not density, and
+    /// existing art never gets squeezed smaller just because a new chain landed.
     func layoutCatalogChains(in body: CGRect) {
         let chains = ItemCatalog.chains
         guard !chains.isEmpty else { return }
         let longest = chains.map { $0.count }.max() ?? 1
 
-        let rowHeight = body.height / CGFloat(chains.count)
-        let columnWidth = body.width / CGFloat(longest)
+        let chainsPerPage = 5
+        let pageCount = Int(ceil(Double(chains.count) / Double(chainsPerPage)))
+        catalogPage = min(max(0, catalogPage), pageCount - 1)
 
-        for (row, chain) in chains.enumerated() {
-            let rowTop = body.maxY - CGFloat(row) * rowHeight
+        var rowsRect = body
+        if pageCount > 1 {
+            let footerHeight = min(54, max(38, body.height * 0.10))
+            rowsRect = CGRect(x: body.minX, y: body.minY + footerHeight,
+                              width: body.width, height: body.height - footerHeight)
+
+            let buttonHeight = footerHeight * 0.72
+            let buttonWidth = min(body.width * 0.22, buttonHeight * 3.2)
+            let buttonY = body.minY + (footerHeight - buttonHeight) / 2
+            if catalogPage > 0 {
+                catalogPreviousRect = CGRect(x: body.minX, y: buttonY,
+                                             width: buttonWidth, height: buttonHeight)
+                sheetNode.addChild(makeStuffButton(rect: catalogPreviousRect,
+                                                    title: "Previous", subtitle: nil,
+                                                    color: SKColor(red: 0.34, green: 0.32,
+                                                                   blue: 0.42, alpha: 1)))
+            }
+            if catalogPage < pageCount - 1 {
+                catalogNextRect = CGRect(x: body.maxX - buttonWidth, y: buttonY,
+                                         width: buttonWidth, height: buttonHeight)
+                sheetNode.addChild(makeStuffButton(rect: catalogNextRect,
+                                                    title: "Next", subtitle: nil,
+                                                    color: SKColor(red: 0.45, green: 0.40,
+                                                                   blue: 0.78, alpha: 1)))
+            }
+
+            let pageLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+            pageLabel.text = "Page \(catalogPage + 1) of \(pageCount)"
+            pageLabel.fontSize = max(12, buttonHeight * 0.32)
+            pageLabel.fontColor = SKColor(white: 0.68, alpha: 1)
+            pageLabel.verticalAlignmentMode = .center
+            pageLabel.horizontalAlignmentMode = .center
+            pageLabel.position = CGPoint(x: body.midX, y: body.minY + footerHeight / 2)
+            sheetNode.addChild(pageLabel)
+        }
+
+        let firstChain = catalogPage * chainsPerPage
+        let visibleChains = Array(chains.dropFirst(firstChain).prefix(chainsPerPage))
+
+        // Keep rows the same size on a partly filled last page. Otherwise the
+        // final few entries balloon, then shrink each time another chain arrives.
+        let rowHeight = rowsRect.height / CGFloat(chainsPerPage)
+        let columnWidth = rowsRect.width / CGFloat(longest)
+
+        for (row, chain) in visibleChains.enumerated() {
+            let rowTop = rowsRect.maxY - CGFloat(row) * rowHeight
             let tallest = chain.map { $0.scale }.max() ?? 1
 
             for (column, definition) in chain.enumerated() {
-                let slot = CGRect(x: body.minX + CGFloat(column) * columnWidth,
+                let slot = CGRect(x: rowsRect.minX + CGFloat(column) * columnWidth,
                                   y: rowTop - rowHeight,
                                   width: columnWidth, height: rowHeight)
                 let cell = slot.insetBy(dx: columnWidth * 0.07, dy: rowHeight * 0.09)

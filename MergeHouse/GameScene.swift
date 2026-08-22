@@ -74,6 +74,12 @@ final class GameScene: SKScene {
     var sheetCells: [(rect: CGRect, id: String)] = []
     var sheetRect: CGRect = .zero
     var sheetCloseRect: CGRect = .zero
+    /// The Catalog is paged so adding a chain does not make every existing row
+    /// shorter. Kept while the sheet is open and rebuilt, so dealing an item
+    /// does not throw the reader back to the first page.
+    var catalogPage = 0
+    var catalogPreviousRect: CGRect = .zero
+    var catalogNextRect: CGRect = .zero
 
     /// Every item that exists, back to front: the last one draws on top and is
     /// the first to be picked up.

@@ -46,6 +46,11 @@
 		33F5D0293037EE84000C3EDD /* ball-gown.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D0253037EE84000C3EDD /* ball-gown.png */; };
 		33F5D02A3037EE84000C3EDD /* dress.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D0263037EE84000C3EDD /* dress.png */; };
 		33F5D02C3039314D000C3EDD /* cake.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D02B3039314D000C3EDD /* cake.png */; };
+		33F5D033303949E4000C3EDD /* child-art.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D02E303949E4000C3EDD /* child-art.png */; };
+		33F5D034303949E4000C3EDD /* vampire.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D032303949E4000C3EDD /* vampire.png */; };
+		33F5D035303949E4000C3EDD /* pretty-painting.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D031303949E4000C3EDD /* pretty-painting.png */; };
+		33F5D036303949E4000C3EDD /* cupcake.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D02F303949E4000C3EDD /* cupcake.png */; };
+		33F5D038303949E4000C3EDD /* dog.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5D030303949E4000C3EDD /* dog.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -89,6 +94,11 @@
 		33F5D0263037EE84000C3EDD /* dress.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dress.png; sourceTree = "<group>"; };
 		33F5D0273037EE84000C3EDD /* party-dress.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "party-dress.png"; sourceTree = "<group>"; };
 		33F5D02B3039314D000C3EDD /* cake.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cake.png; sourceTree = "<group>"; };
+		33F5D02E303949E4000C3EDD /* child-art.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "child-art.png"; sourceTree = "<group>"; };
+		33F5D02F303949E4000C3EDD /* cupcake.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cupcake.png; sourceTree = "<group>"; };
+		33F5D030303949E4000C3EDD /* dog.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dog.png; sourceTree = "<group>"; };
+		33F5D031303949E4000C3EDD /* pretty-painting.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pretty-painting.png"; sourceTree = "<group>"; };
+		33F5D032303949E4000C3EDD /* vampire.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = vampire.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +157,11 @@
 		33F5D0243037EE6E000C3EDD /* art */ = {
 			isa = PBXGroup;
 			children = (
+				33F5D02E303949E4000C3EDD /* child-art.png */,
+				33F5D02F303949E4000C3EDD /* cupcake.png */,
+				33F5D030303949E4000C3EDD /* dog.png */,
+				33F5D031303949E4000C3EDD /* pretty-painting.png */,
+				33F5D032303949E4000C3EDD /* vampire.png */,
 				33F5D02B3039314D000C3EDD /* cake.png */,
 				33F5CFFA30369E23000C3EDD /* bear.png */,
 				33F5CFFB30369E23000C3EDD /* bow.png */,
@@ -243,6 +258,11 @@
 				33F5D0293037EE84000C3EDD /* ball-gown.png in Resources */,
 				33F5D02A3037EE84000C3EDD /* dress.png in Resources */,
 				33F5D0163037E489000C3EDD /* headband.png in Resources */,
+				33F5D033303949E4000C3EDD /* child-art.png in Resources */,
+				33F5D034303949E4000C3EDD /* vampire.png in Resources */,
+				33F5D035303949E4000C3EDD /* pretty-painting.png in Resources */,
+				33F5D036303949E4000C3EDD /* cupcake.png in Resources */,
+				33F5D038303949E4000C3EDD /* dog.png in Resources */,
 				33F5D0233037E693000C3EDD /* bedroom.png in Resources */,
 				33F5D0173037E489000C3EDD /* tree.png in Resources */,
 				33F5D0183037E489000C3EDD /* crown.png in Resources */,

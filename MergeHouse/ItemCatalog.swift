@@ -81,6 +81,15 @@ struct ItemDefinition {
     /// What a character thinks of being given this. `nil` gets a generic
     /// sparkle, so leaving it out is a perfectly good answer.
     let reaction: Reaction?
+    /// What this thing sounds like — a word, not a filename, and shared by
+    /// everything made of the same stuff. The third of the same bargain `carry`
+    /// and `reaction` strike: a Teddy says it is soft, and `SoundEvent` says
+    /// what is happening to it. `teddy` plus a merge asks for `teddy-merge`,
+    /// falling back to the shared `merge`, falling back to silence.
+    ///
+    /// `nil` — no particular noise of its own — is a perfectly good answer, and
+    /// so is a word with no file behind it, which is what all of them are today.
+    let sound: String?
 
     /// The drawing behind this item, if the asset actually exists. Missing art is
     /// the normal state during exploration, so this is an `Optional`, not an error.
@@ -109,7 +118,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1),
                        carry: .hand,
-                       reaction: .love),
+                       reaction: .love,
+                       sound: "teddy"),
         ItemDefinition(id: "teddy-big",
                        name: "Big Teddy",
                        imageName: "big-bear",
@@ -117,7 +127,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.76, green: 0.48, blue: 0.26, alpha: 1),
                        carry: .hand,
-                       reaction: .love),
+                       reaction: .love,
+                       sound: "teddy"),
         ItemDefinition(id: "teddy-giant",
                        name: "Giant Teddy",
                        imageName: "big-bear",
@@ -125,7 +136,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1),
                        carry: .hand,
-                       reaction: .love),
+                       reaction: .love,
+                       sound: "teddy"),
 
         ItemDefinition(id: "bow",
                        name: "Bow",
@@ -134,7 +146,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.95, green: 0.62, blue: 0.76, alpha: 1),
                        carry: .head,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "trinket"),
         ItemDefinition(id: "bow-fancy",
                        name: "Fancy Bow",
                        imageName: "fancy-bow",
@@ -142,7 +155,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.85, green: 0.42, blue: 0.62, alpha: 1),
                        carry: .head,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "trinket"),
         ItemDefinition(id: "tiara",
                        name: "Tiara",
                        imageName: "tiara",
@@ -150,7 +164,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.95, green: 0.82, blue: 0.35, alpha: 1),
                        carry: .head,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "trinket"),
         ItemDefinition(id: "crown",
                        name: "Crown",
                        imageName: "crown",
@@ -158,7 +173,8 @@ enum ItemCatalog {
                        scale: 2.0,
                        placeholderColor: SKColor(red: 0.2, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .head,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "trinket"),
         ItemDefinition(id: "cupcake-block",
                        name: "Cupcake",
                        imageName: "none",
@@ -166,7 +182,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "cake-block",
                        name: "Cake",
                        imageName: "none",
@@ -174,7 +191,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "cake-giant-block",
                        name: "Giant Cake",
                        imageName: "none",
@@ -182,7 +200,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "wedding-cake-block",
                        name: "Wedding Cake",
                        imageName: "none",
@@ -190,7 +209,8 @@ enum ItemCatalog {
                        scale: 2.0,
                        placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "cupcake",
                        name: "Cupcake",
                        imageName: "cupcake",
@@ -198,7 +218,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "cake",
                        name: "Cake",
                        imageName: "cake",
@@ -206,7 +227,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "cake-giant",
                        name: "Giant Cake",
                        imageName: "cake-giant",
@@ -214,7 +236,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
         ItemDefinition(id: "wedding-cake",
                        name: "Wedding Cake",
                        imageName: "cake-gianter",
@@ -222,7 +245,8 @@ enum ItemCatalog {
                        scale: 2.0,
                        placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "cake"),
 
         ItemDefinition(id: "dress",
                        name: "Dress",
@@ -231,7 +255,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.62, green: 0.78, blue: 0.94, alpha: 1),
                        carry: .body,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "cloth"),
         ItemDefinition(id: "party-dress",
                        name: "Party Dress",
                        imageName: "party-dress",
@@ -239,7 +264,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.48, green: 0.60, blue: 0.90, alpha: 1),
                        carry: .body,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "cloth"),
         ItemDefinition(id: "ball-gown",
                        name: "Ball Gown",
                        imageName: "ball-gown",
@@ -247,7 +273,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.40, green: 0.36, blue: 0.78, alpha: 1),
                        carry: .body,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "cloth"),
 
         ItemDefinition(id: "leaf",
                        name: "Leaf",
@@ -256,7 +283,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.58, green: 0.82, blue: 0.44, alpha: 1),
                        carry: .hand,
-                       reaction: .silly),
+                       reaction: .silly,
+                       sound: "leaf"),
         ItemDefinition(id: "sapling",
                        name: "Sapling",
                        imageName: "sapling",
@@ -264,7 +292,8 @@ enum ItemCatalog {
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.38, green: 0.68, blue: 0.36, alpha: 1),
                        carry: .hand,
-                       reaction: .silly),
+                       reaction: .silly,
+                       sound: "leaf"),
         ItemDefinition(id: "tree",
                        name: "Tree",
                        imageName: "tree",
@@ -272,7 +301,8 @@ enum ItemCatalog {
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.22, green: 0.50, blue: 0.28, alpha: 1),
                        carry: .hand,
-                       reaction: .silly),
+                       reaction: .silly,
+                       sound: "leaf"),
 
         // Three colours of the same thing rather than a chain: nothing merges
         // into a frosting and a frosting merges into nothing, so each is dealt
@@ -284,7 +314,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.88, green: 0.26, blue: 0.28, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "goo"),
         ItemDefinition(id: "blue-frosting",
                        name: "Blue Frosting",
                        imageName: "blue-frosting",
@@ -292,7 +323,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.32, green: 0.48, blue: 0.88, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "goo"),
         ItemDefinition(id: "pink-frosting",
                        name: "Pink Frosting",
                        imageName: "pink-frosting",
@@ -300,7 +332,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.96, green: 0.55, blue: 0.72, alpha: 1),
                        carry: .hand,
-                       reaction: .yum),
+                       reaction: .yum,
+                       sound: "goo"),
 
         ItemDefinition(id: "headband",
                        name: "Headband",
@@ -309,7 +342,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.92, green: 0.40, blue: 0.62, alpha: 1),
                        carry: .head,
-                       reaction: .proud),
+                       reaction: .proud,
+                       sound: "trinket"),
         ItemDefinition(id: "lona-misa",
                        name: "Lona Misa",
                        imageName: "lona-misa",
@@ -317,7 +351,8 @@ enum ItemCatalog {
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.72, green: 0.62, blue: 0.38, alpha: 1),
                        carry: .hand,
-                       reaction: .silly),
+                       reaction: .silly,
+                       sound: nil),
     ]
 
     /// The biggest `scale` anything in the catalog has. A view with a fixed
@@ -344,6 +379,28 @@ enum ItemCatalog {
         }
         return chain
     }
+
+    /// How far up its chain a thing is, counting the bottom of the chain as 1.
+    ///
+    /// Read off `chains`, so it stays true as the catalog is edited and nothing
+    /// has to number itself. A thing in no chain at all — which cannot happen,
+    /// since a chain of one is still a chain — would be at the bottom of one.
+    static func level(of definition: ItemDefinition) -> Int {
+        levelByID[definition.id] ?? 1
+    }
+
+    private static let levelByID: [String: Int] = {
+        var levels: [String: Int] = [:]
+        for chain in chains {
+            for (index, definition) in chain.enumerated() {
+                // The shortest way to a thing wins, for an item that two chains
+                // both climb through: it is the same thing at the same size, and
+                // it should not sound different depending on how it was reached.
+                levels[definition.id] = min(levels[definition.id] ?? .max, index + 1)
+            }
+        }
+        return levels
+    }()
 
     /// Catalog order, used to sort loose items so a chain reads left to right.
     static func sortIndex(of definition: ItemDefinition) -> Int {

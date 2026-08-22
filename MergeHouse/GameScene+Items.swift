@@ -317,6 +317,11 @@ extension GameScene {
 
         setNeedsSave()
 
+        // The item says what it is made of and the event says what is happening
+        // to it; neither has to know the other. A thing with no noise of its own
+        // gets the shared one, and today every one of them gets silence.
+        playSound(.wear, voice: items[index].definition.sound)
+
         // What they think of it. The item says which reaction it is worth and
         // the bubble knows how to draw that; an item that says nothing still
         // gets a sparkle, because being handed something is worth something.
@@ -443,6 +448,9 @@ extension GameScene {
         let dropped = items[index]
         guard let target = mergeTarget(for: dropped),
               let result = ItemCatalog.mergeResult(for: dropped.definition) else {
+            // Nothing happened to it but being let go, so that is the noise it
+            // makes. Every other way out of this function has made its own.
+            playSound(.putDown, voice: dropped.definition.sound)
             node.run(.scale(to: 1.0, duration: 0.08))
             return
         }
@@ -461,6 +469,18 @@ extension GameScene {
                                           in: .stuff)
         let node = addItem(definition: result, location: .stuff,
                            anchor: itemAnchor(for: resting, in: .stuff))
+
+        // Pitched by how far up its chain the result is, so a Crown lands higher
+        // than the Bow it came from off one recording.
+        playSound(.merge, voice: result.sound,
+                  pitch: Sounds.pitch(forLevel: ItemCatalog.level(of: result)))
+        // Nothing to merge into is the top of a chain, which `ItemCatalog`
+        // already knows — so celebrating it costs a line and no new bookkeeping.
+        // Behind the pop rather than over it: pop, then ta-daa.
+        if result.mergesInto == nil {
+            playSound(.topOut, voice: result.sound, after: 0.12)
+        }
+
         node.setScale(0.5)
         node.run(.sequence([.scale(to: 1.15, duration: 0.10),
                             .scale(to: 1.0, duration: 0.08)]))

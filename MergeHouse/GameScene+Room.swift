@@ -119,6 +119,8 @@ extension GameScene {
         // room you come back to still has the chair.
         characterUsing = nil
 
+        playSound(.door)
+
         layoutRoom()
         layoutFurniture()
         layoutCharacter()

@@ -108,6 +108,8 @@ extension GameScene {
         dragOffset = CGPoint(x: node.position.x - location.x,
                              y: node.position.y - location.y)
 
+        playSound(.pickUp, voice: item.definition.sound)
+
         node.removeAllActions()
         node.run(.scale(to: 1.08, duration: 0.08))
     }

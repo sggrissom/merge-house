@@ -32,7 +32,15 @@ Nothing here adds a new toy. All of it makes the toys already in the box feel
 like they are made of something. This is the tier with the best ratio of delight
 to work, and I would do all five before anything in Tier 2.
 
-### 1. Sound (S)
+### 1. Sound (S) — *wiring built, files still missing*
+
+**Built:** `Sounds.swift`, `SoundEvent`, `sound:` on `ItemDefinition`, the mute
+button, and every call site below. The game is still completely silent, because
+nothing has been recorded yet — which under the placeholder rule is a normal
+state and not an unfinished feature. Dropping a file in is the whole remaining
+job; see **Sound** in the README for the filenames it is waiting for. What is
+left of this item is the recordings, and the choice between the three ways of
+getting them at the bottom of this document.
 
 The whole game is silent, which for a toy aimed at a child is the single biggest
 thing missing. Not music — noises:

@@ -16,6 +16,10 @@ extension GameScene {
         case mergeAll = "Merge All"
         case labels = "Labels"
         case trash = "Trash"
+        /// The one button here a child's parent uses rather than a developer,
+        /// which is why it is the odd one out in a toolbar of explore tools. It
+        /// stays put when the rest of them are eventually folded away.
+        case sound = "Sound"
 
         /// A second line of small print, where the button needs one.
         var subtitle: String? {
@@ -24,6 +28,7 @@ extension GameScene {
             case .characters: return "pick who you are"
             case .rooms: return "go somewhere else"
             case .trash: return "drop one, or tap to clear"
+            case .sound: return "quiet at bedtime"
             default: return nil
             }
         }
@@ -38,6 +43,7 @@ extension GameScene {
             case .mergeAll: return SKColor(red: 0.80, green: 0.58, blue: 0.24, alpha: 1)
             case .labels: return SKColor(red: 0.40, green: 0.44, blue: 0.50, alpha: 1)
             case .trash: return SKColor(red: 0.72, green: 0.32, blue: 0.34, alpha: 1)
+            case .sound: return SKColor(red: 0.36, green: 0.64, blue: 0.42, alpha: 1)
             }
         }
     }
@@ -180,6 +186,7 @@ extension GameScene {
         }
 
         refreshLabelsButton()
+        refreshSoundButton()
     }
 
     /// The left edge of the toolbar, which items keep clear of.
@@ -193,6 +200,9 @@ extension GameScene {
     }
 
     static let buttonBackgroundName = "button-background"
+    /// Named because one button's title is its state: Sound reads "Muted" when
+    /// it is, which beats a dimmed rectangle you have to remember the meaning of.
+    static let buttonTitleName = "button-title"
 
     /// Built around its own centre so it can scale when pressed.
     func makeStuffButton(rect: CGRect, title: String,
@@ -209,19 +219,30 @@ extension GameScene {
         background.lineWidth = 2
         node.addChild(background)
 
+        let titleSize = max(13, rect.height * 0.34)
+        let captionSize = max(8, rect.height * 0.19)
+        // Two lines only where two lines fit. Both sizes have a floor they will
+        // not go below, so on a short button they stop shrinking with it and
+        // start printing through each other instead. The small print is the half
+        // worth losing: the name of the button is the part you need. Nine tools
+        // in two columns is what brought this within reach, and splitting the
+        // toolbar in two is the real answer to that — see plan #14.
+        let smallPrint = rect.height >= (titleSize + captionSize) * 1.3 ? subtitle : nil
+
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.name = Self.buttonTitleName
         label.text = title
-        label.fontSize = max(13, rect.height * 0.34)
+        label.fontSize = titleSize
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
-        label.position = CGPoint(x: 0, y: subtitle == nil ? 0 : rect.height * 0.12)
+        label.position = CGPoint(x: 0, y: smallPrint == nil ? 0 : rect.height * 0.12)
         node.addChild(label)
 
-        if let subtitle = subtitle {
+        if let smallPrint = smallPrint {
             let caption = SKLabelNode(fontNamed: "AvenirNext-Medium")
-            caption.text = subtitle
-            caption.fontSize = max(8, rect.height * 0.19)
+            caption.text = smallPrint
+            caption.fontSize = captionSize
             caption.fontColor = SKColor(white: 1, alpha: 0.75)
             caption.verticalAlignmentMode = .center
             caption.horizontalAlignmentMode = .center
@@ -283,6 +304,7 @@ extension GameScene {
         case .mergeAll: mergeEverything()
         case .labels: toggleItemLabels()
         case .trash: clearStuffTapped()
+        case .sound: toggleSound()
         }
         setNeedsSave()
     }
@@ -304,6 +326,30 @@ extension GameScene {
         layoutItems()
     }
 
+    /// Says what it is rather than what it will do, unlike Labels: a button
+    /// reading "Muted" is a state a parent can read across a dark bedroom.
+    func refreshSoundButton() {
+        guard let node = button(for: .sound)?.node else { return }
+        let background = node.childNode(withName: Self.buttonBackgroundName) as? SKShapeNode
+        background?.fillColor = Sounds.isMuted
+            ? SKColor(white: 0.24, alpha: 1)
+            : StuffTool.sound.color
+        let title = node.childNode(withName: Self.buttonTitleName) as? SKLabelNode
+        title?.text = Sounds.isMuted ? "Muted" : "Sound"
+    }
+
+    /// Muting is not part of the save. It belongs to the device and the hour of
+    /// the evening rather than to the game being played — see `Sounds.isMuted`.
+    func toggleSound() {
+        Sounds.isMuted.toggle()
+        refreshSoundButton()
+        // Turning it back on says so out loud. A silent button is exactly what
+        // the muted one is supposed to look like, so the unmuted one has to be
+        // audibly different — and while there are no files yet, this is the one
+        // place the silence is deliberate rather than merely missing.
+        playSound(.pickUp)
+    }
+
     /// Wipes every loose item, in the Stuff area and in the room alike.
     /// Any drag in progress is dropped with it, since its item is gone.
     func clearStuffTapped() {
@@ -316,6 +362,9 @@ extension GameScene {
         highlightMergeTarget(nil)
         highlightTrash(false)
         highlightCharacter(false)
+        // One crumple for the lot: emptying a shelf of twenty is one action, and
+        // twenty of them at once is a noise rather than twenty noises.
+        playSound(.trash)
 
         for item in items {
             guard let node = itemNodes[item.id] else { continue }
@@ -428,6 +477,7 @@ extension GameScene {
     /// Fades one item out and forgets it. The single-item counterpart to Trash.
     func discardItem(id: Int) {
         guard let node = itemNodes[id] else { return }
+        playSound(.trash, voice: itemIndex(id: id).flatMap { items[$0].definition.sound })
         node.removeAllActions()
         node.run(.sequence([.group([.scale(to: 0.3, duration: 0.14),
                                     .fadeOut(withDuration: 0.14)]),

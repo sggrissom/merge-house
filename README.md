@@ -24,6 +24,7 @@ game would have any of it:
 | **Merge All** | Merges every pair it can, repeatedly, until nothing else combines. The quick way to see the top of a chain. |
 | **Labels** | Toggles the name tag under each item. |
 | **Trash** | Drag one item onto it to bin that item; tap it to clear everything. |
+| **Sound** | Mutes the game, and says **Muted** while it is. The one button here a parent uses rather than a developer. |
 
 The shelf deals items into slots rather than scattering them, and splits itself
 into more rows as it fills, so `Get Stuff` never buries anything.
@@ -77,7 +78,49 @@ So a Teddy never learns what a Baby is, a new item is welcomed by everyone in th
 game the day it is added, and no gameplay code has to know that a Cake is food.
 
 Still missing, and worth doing next: a carry point is a single fixed spot rather
-than a pose, and there is no sound.
+than a pose.
+
+## Sound
+
+Wired end to end and completely silent, because there is not one audio file in
+the bundle yet. That is the same bargain the drawings strike — **a missing file
+is a normal state, not an error** — so every noise the game makes is already
+decided, already muteable, and already asking for a file by name.
+
+Nothing about it needs code once the files arrive. Drop a sound into the target
+the way a PNG goes in and it takes over, and until then that noise is silence.
+
+Which noise plays is the same two-halves split as carrying and reacting:
+
+- **The event says what is happening.** `SoundEvent` in `Sounds.swift` is the
+  whole list — a merge, a chain topping out, a pick-up, a put-down, something
+  worn, a door, a crumple — and each one names the file it wants: `merge.wav`,
+  `top-out.wav`, `pick-up.wav`, `put-down.wav`, `wear.wav`, `door.wav`,
+  `trash.wav`. Any format Core Audio reads will do.
+- **The item says what it is made of.** `sound: "teddy"` in `ItemCatalog` is one
+  word, not a filename, and it covers every noise a teddy can make: a teddy
+  merging looks for `teddy-merge` first and falls back to the shared `merge`.
+  So recording a soft thud for teddies and nothing else is a complete, sensible
+  thing to do — and `sound: nil` is a perfectly good answer too.
+
+The catalog currently gives out six voices — `teddy`, `trinket`, `cake`,
+`cloth`, `leaf` and `goo` — none of which has a file behind it. In a debug build
+the console names each file the first time something asks for it, which is the
+only way to see the wiring working while it is all still silent.
+
+Two details that are not just plumbing:
+
+- **A merge is pitched by how far up its chain it landed**, a minor third per
+  level, so one recording makes a Crown land higher than the Bow it came from
+  and a chain tops out with a fanfare behind the pop.
+- **The same noise twice in one instant is one noise.** Merge All merges up to
+  two hundred pairs in a single frame; two hundred pops at once is a bang, not a
+  cascade.
+
+**Mute is saved, and it is not saved with the game.** It lives in `UserDefaults`
+rather than in the save file, because a save holds the things the child made and
+a parent silencing the house at bedtime means the device, not the particular
+shelf of bows that happened to be open.
 
 ## Rooms
 

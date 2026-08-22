@@ -14,8 +14,9 @@ struct SavedGame: Codable {
     /// unrecognised version starts fresh, which for a prototype costs a shelf of
     /// bows and saves a whole class of bug.
     ///
-    /// Naming a save did not bump it, because a field that may be absent is not
-    /// a shape an old file cannot be read as — see `name` and `saved`.
+    /// Naming a save did not bump it, and nor did rooms, because a field that may
+    /// be absent is not a shape an old file cannot be read as — see `name`,
+    /// `saved` and `room`.
     static let currentVersion = 1
 
     let version: Int
@@ -29,10 +30,14 @@ struct SavedGame: Codable {
     let items: [SavedItem]
     /// The id of the character being played as.
     let character: String?
+    /// The id of the room being stood in. Optional because the saves written
+    /// before there was more than one room were all of them in the Bedroom, and
+    /// that is exactly what a missing value means.
+    let room: String?
     /// Where they were standing, as a fraction of the room.
     let characterX: Double
     let characterY: Double
-    /// The raw value of the furniture they were using, if any.
+    /// The id of the piece of furniture they were using, if any.
     let characterUsing: String?
 
     /// A game nobody has played yet. Written the moment a save is named, so a
@@ -40,7 +45,7 @@ struct SavedGame: Codable {
     /// see until you have made something is a slot you would think had failed.
     static func empty(name: String) -> SavedGame {
         SavedGame(version: currentVersion, name: name, saved: Date(), items: [],
-                  character: nil, characterX: 0.5, characterY: 0.10,
+                  character: nil, room: nil, characterX: 0.5, characterY: 0.10,
                   characterUsing: nil)
     }
 }
@@ -54,6 +59,10 @@ struct SavedItem: Codable {
     let item: String
     /// `"stuff"`, `"room"` or `"carried"`.
     let place: String
+    /// Which room it was left in, when `place` is `"room"`. A `RoomCatalog` id
+    /// and not an index, for the reason `item` is: the catalog is meant to be
+    /// edited freely. Absent in a save written before there was a second room.
+    let room: String?
     /// A `CarryStyle` raw value, when `place` is `"carried"`.
     let carry: String?
     /// Position as a fraction of whichever area it is in. Ignored when carried,
@@ -174,7 +183,7 @@ enum SaveStore {
     static func rename(_ id: String, to name: String) {
         guard let game = load(id) else { return }
         save(SavedGame(version: game.version, name: name, saved: game.saved,
-                       items: game.items, character: game.character,
+                       items: game.items, character: game.character, room: game.room,
                        characterX: game.characterX, characterY: game.characterY,
                        characterUsing: game.characterUsing),
              id: id)

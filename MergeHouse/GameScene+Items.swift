@@ -5,8 +5,8 @@ extension GameScene {
     // MARK: - Items
 
     /// Where an item currently lives. Items start in the Stuff area, can be
-    /// carried into the Bedroom, where they become part of the dollhouse, and can
-    /// end up on the character themselves — worn or held.
+    /// carried into whichever room you are in, where they become part of the
+    /// dollhouse, and can end up on the character themselves — worn or held.
     ///
     /// The first two are places in the scene; the third is a place on a *body*,
     /// which is why it carries the style rather than a rect. Everything that
@@ -32,6 +32,28 @@ extension GameScene {
         let definition: ItemDefinition
         var location: ItemLocation
         var anchor: CGPoint
+        /// Which room it was left in, for an item that is in one. `.room` says an
+        /// item is standing in a room; this says which room that was, so what you
+        /// arranged in the Bedroom is still in the Bedroom after a trip to the
+        /// Kitchen. `nil` for anything on the shelf or on the character — those
+        /// come with you.
+        var room: String?
+    }
+
+    /// Whether an item is somewhere you can see it from where you are standing.
+    /// The shelf and the character are always with you; a room is only in front
+    /// of you while you are in it.
+    func isHere(_ item: Item) -> Bool {
+        item.location != .room || item.room == room.id
+    }
+
+    /// Moves one item, remembering which room it landed in when it landed in one.
+    /// Every move goes through here, so nothing can end up standing in a room
+    /// that cannot say which room that is.
+    func place(_ index: Int, in location: ItemLocation, anchor: CGPoint) {
+        items[index].location = location
+        items[index].anchor = anchor
+        items[index].room = location == .room ? room.id : nil
     }
 
     /// Drops one item into the Stuff area. `Get Stuff` deals a random starter;
@@ -52,11 +74,13 @@ extension GameScene {
     }
 
     /// Adds one item to the model and the scene, on top of everything else.
+    /// Anything put straight into a room lands in the one you are in.
     @discardableResult
     func addItem(definition: ItemDefinition, location: ItemLocation,
                          anchor: CGPoint) -> SKNode {
         let item = Item(id: nextItemID, definition: definition,
-                        location: location, anchor: anchor)
+                        location: location, anchor: anchor,
+                        room: location == .room ? room.id : nil)
         nextItemID += 1
         items.append(item)
         let node = addItemNode(for: item)
@@ -169,7 +193,9 @@ extension GameScene {
             node.removeFromParent()
         }
         itemNodes = [:]
-        for item in items {
+        // What you left in another room is still in the model — it is simply not
+        // drawn, because you are not standing in the room it is in.
+        for item in items where isHere(item) {
             addItemNode(for: item)
         }
         refreshItemDepths()
@@ -280,7 +306,7 @@ extension GameScene {
         guard let index = itemIndex(id: id) else { return }
         itemNodes[id]?.removeFromParent()
         itemNodes[id] = nil
-        items[index].location = .carried(style)
+        place(index, in: .carried(style), anchor: items[index].anchor)
         addItemNode(for: items[index])
         refreshItemDepths()
         refreshStuffCount()
@@ -312,8 +338,7 @@ extension GameScene {
         let resting = clampedItemPosition(CGPoint(x: scenePoint.x + offset.x,
                                                   y: scenePoint.y + offset.y),
                                           size: size, in: .room)
-        items[index].location = .room
-        items[index].anchor = itemAnchor(for: resting, in: .room)
+        place(index, in: .room, anchor: itemAnchor(for: resting, in: .room))
         let fresh = addItemNode(for: items[index])
         refreshItemDepths()
         refreshStuffCount()
@@ -398,8 +423,7 @@ extension GameScene {
                                                          in: dropLocation),
                                           in: dropLocation)
         let movedArea = items[index].location != dropLocation
-        items[index].location = dropLocation
-        items[index].anchor = itemAnchor(for: resting, in: dropLocation)
+        place(index, in: dropLocation, anchor: itemAnchor(for: resting, in: dropLocation))
         node.position = resting
         refreshStuffCount()
 

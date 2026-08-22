@@ -23,6 +23,7 @@
 		1A0000000000000000000035 /* GameScene+Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000045 /* GameScene+Sheets.swift */; };
 		1A0000000000000000000036 /* GameScene+Saving.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000046 /* GameScene+Saving.swift */; };
 		1A0000000000000000000037 /* Artwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000047 /* Artwork.swift */; };
+		1A0000000000000000000038 /* RoomCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000048 /* RoomCatalog.swift */; };
 		33F5CFFE30369E23000C3EDD /* bow.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFB30369E23000C3EDD /* bow.png */; };
 		33F5CFFF30369E23000C3EDD /* bear.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFA30369E23000C3EDD /* bear.png */; };
 		33F5D00130369E23000C3EDD /* fancy-bow.png in Resources */ = {isa = PBXBuildFile; fileRef = 33F5CFFD30369E23000C3EDD /* fancy-bow.png */; };
@@ -64,6 +65,7 @@
 		1A0000000000000000000045 /* GameScene+Sheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GameScene+Sheets.swift"; sourceTree = "<group>"; };
 		1A0000000000000000000046 /* GameScene+Saving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GameScene+Saving.swift"; sourceTree = "<group>"; };
 		1A0000000000000000000047 /* Artwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Artwork.swift; sourceTree = "<group>"; };
+		1A0000000000000000000048 /* RoomCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCatalog.swift; sourceTree = "<group>"; };
 		33F5CFFA30369E23000C3EDD /* bear.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bear.png; sourceTree = "<group>"; };
 		33F5CFFB30369E23000C3EDD /* bow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bow.png; sourceTree = "<group>"; };
 		33F5CFFD30369E23000C3EDD /* fancy-bow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "fancy-bow.png"; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				1A0000000000000000000047 /* Artwork.swift */,
 				1A0000000000000000000016 /* ItemCatalog.swift */,
 				1A0000000000000000000017 /* CharacterCatalog.swift */,
+				1A0000000000000000000048 /* RoomCatalog.swift */,
 				1A0000000000000000000018 /* SaveGame.swift */,
 				1A0000000000000000000012 /* Assets.xcassets */,
 				33F5D0243037EE6E000C3EDD /* art */,
@@ -262,6 +265,7 @@
 				1A0000000000000000000025 /* GameScene.swift in Sources */,
 				1A0000000000000000000026 /* ItemCatalog.swift in Sources */,
 				1A0000000000000000000027 /* CharacterCatalog.swift in Sources */,
+				1A0000000000000000000038 /* RoomCatalog.swift in Sources */,
 				1A0000000000000000000028 /* SaveGame.swift in Sources */,
 				1A0000000000000000000030 /* GameScene+Room.swift in Sources */,
 				1A0000000000000000000031 /* GameScene+Stuff.swift in Sources */,

@@ -23,7 +23,7 @@ extension GameScene {
         characterBodyNode.addChild(makeCharacterArtwork(for: character, height: height))
 
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = characterUsing?.characterLabel ?? character.name
+        label.text = usingPiece?.definition.use?.label ?? character.name
         label.fontSize = max(12, height * 0.15)
         label.fontColor = SKColor(white: 0.15, alpha: 1)
         label.verticalAlignmentMode = .bottom
@@ -36,8 +36,8 @@ extension GameScene {
         characterLocalFrame = characterBodyNode.calculateAccumulatedFrame()
         characterBodyNode.addChild(makeCharacterHighlight())
 
-        if let kind = characterUsing, let piece = piece(for: kind) {
-            characterNode.zRotation = kind.characterRotation
+        if let piece = usingPiece {
+            characterNode.zRotation = piece.definition.use?.pose.rotation ?? 0
             characterNode.position = seatPosition(for: piece)
         } else {
             characterNode.position = clampedCharacterPosition(scenePosition(for: characterAnchor))

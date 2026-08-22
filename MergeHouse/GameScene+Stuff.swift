@@ -434,6 +434,12 @@ extension GameScene {
             items[entry.offset].anchor = itemAnchor(for: point, in: .stuff)
             guard let node = itemNodes[entry.element.id] else { continue }
             node.removeAllActions()
+            // Whatever animation was interrupted, an item on a tidied shelf is
+            // its own size. Merge All merges and tidies in the same frame, so
+            // the pop the last merge just scheduled is cancelled here before it
+            // has run a single frame — which used to leave the top of the chain
+            // sitting at half size, and now would leave a topped-out one huge.
+            node.setScale(1)
             node.run(.move(to: point, duration: 0.18))
         }
 

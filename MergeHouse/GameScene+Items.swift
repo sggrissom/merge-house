@@ -512,20 +512,114 @@ extension GameScene {
         refreshStuffDensity()
         let node = itemNodes[id] ?? SKNode()
 
+        // Nothing to merge into is the top of a chain, which `ItemCatalog`
+        // already knows — so celebrating it costs no new bookkeeping, and a
+        // chain added to the catalog tomorrow celebrates its own top for free.
+        let toppedOut = result.mergesInto == nil
+
         // Pitched by how far up its chain the result is, so a Crown lands higher
         // than the Bow it came from off one recording.
         playSound(.merge, voice: result.sound,
                   pitch: Sounds.pitch(forLevel: ItemCatalog.level(of: result)))
-        // Nothing to merge into is the top of a chain, which `ItemCatalog`
-        // already knows — so celebrating it costs a line and no new bookkeeping.
         // Behind the pop rather than over it: pop, then ta-daa.
-        if result.mergesInto == nil {
+        if toppedOut {
             playSound(.topOut, voice: result.sound, after: 0.12)
         }
 
         node.setScale(0.5)
-        node.run(.sequence([.scale(to: 1.15, duration: 0.10),
-                            .scale(to: 1.0, duration: 0.08)]))
+        if toppedOut {
+            // Bigger than it will end up, and slower to give it up. A Crown
+            // arriving exactly the way a Fancy Bow arrives is the thing this is
+            // fixing: the last thing in a chain should look like the last thing.
+            let swell = SKAction.scale(to: 1.55, duration: 0.18)
+            swell.timingMode = .easeOut
+            let settle = SKAction.scale(to: 1.0, duration: 0.28)
+            settle.timingMode = .easeInEaseOut
+            node.run(.sequence([swell, .wait(forDuration: 0.12), settle]))
+            burstConfetti(at: resting, color: result.placeholderColor)
+        } else {
+            node.run(.sequence([.scale(to: 1.15, duration: 0.10),
+                                .scale(to: 1.0, duration: 0.08)]))
+        }
+    }
+
+    // MARK: - Celebrating
+
+    /// Paper thrown in the air over something that has just been finished.
+    ///
+    /// Shapes rather than an emitter file, for the same reason the reaction
+    /// bubble is: it is finished before anybody draws anything, and there is no
+    /// `.sks` to keep in step with the code. Each piece is thrown out and up,
+    /// falls back down past where it started, spins the whole way, and takes
+    /// itself off the scene — so nothing here has to be cleaned up later.
+    ///
+    /// It is coloured from the item rather than from a party palette, because
+    /// the item is the only thing that knows what colour it is, and confetti in
+    /// a Tree's green reads as *that* Tree being finished rather than as a
+    /// generic well done.
+    func burstConfetti(at point: CGPoint, color: SKColor) {
+        let piece = itemBaseSize.height * 0.13
+        let reach = itemBaseSize.height * 1.5
+        let colors = confettiColors(from: color)
+
+        for index in 0..<Self.confettiCount {
+            // Spread evenly rather than randomly, jittered: fourteen random
+            // angles leave gaps and clumps, and a burst wants neither.
+            let slice = (CGFloat(index) + CGFloat.random(in: 0.15...0.85))
+                / CGFloat(Self.confettiCount)
+            let angle = slice * 2 * CGFloat.pi
+            let throwOut = reach * CGFloat.random(in: 0.55...1.15)
+
+            let flake = SKShapeNode(rectOf: CGSize(width: piece * CGFloat.random(in: 0.7...1.3),
+                                                   height: piece * CGFloat.random(in: 0.5...0.9)),
+                                    cornerRadius: piece * 0.2)
+            flake.fillColor = colors[index % colors.count]
+            flake.strokeColor = .clear
+            flake.position = point
+            flake.zRotation = CGFloat.random(in: 0...(2 * CGFloat.pi))
+            // Above every loose item, whose depths are their index in `items`.
+            // Counted rather than a big number, so paper thrown while the
+            // Catalog happens to be open still goes behind it rather than over.
+            flake.zPosition = CGFloat(items.count) + 1
+            itemsNode.addChild(flake)
+
+            let rise = SKAction.moveBy(x: cos(angle) * throwOut * 0.5,
+                                       y: sin(angle) * throwOut * 0.5 + reach * 0.35,
+                                       duration: 0.34)
+            rise.timingMode = .easeOut
+            let fall = SKAction.moveBy(x: cos(angle) * throwOut * 0.5,
+                                       y: -reach * CGFloat.random(in: 0.9...1.4),
+                                       duration: 0.62)
+            fall.timingMode = .easeIn
+            let spin = SKAction.rotate(byAngle: CGFloat.random(in: -6...6), duration: 0.96)
+
+            flake.run(.group([
+                .sequence([rise, fall, .removeFromParent()]),
+                spin,
+                .sequence([.wait(forDuration: 0.62), .fadeOut(withDuration: 0.34)]),
+            ]))
+        }
+    }
+
+    /// How many pieces of paper. Enough to read as a handful thrown, few enough
+    /// that a Merge All cascade topping out three chains at once is still a
+    /// scene rather than a snowstorm.
+    static let confettiCount = 14
+
+    /// The item's colour and two neighbours of it, so a burst has some life in
+    /// it without being a different colour from the thing it is celebrating.
+    /// A colour that is nearly white or nearly black has nowhere to go paler or
+    /// darker, so the shift is around whatever room it actually has.
+    private func confettiColors(from color: SKColor) -> [SKColor] {
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        guard color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+            return [color]
+        }
+        let paler = SKColor(hue: hue, saturation: saturation * 0.55,
+                            brightness: min(1, brightness * 1.25 + 0.1), alpha: alpha)
+        let deeper = SKColor(hue: hue, saturation: min(1, saturation * 1.2 + 0.1),
+                             brightness: max(0.25, brightness * 0.75), alpha: alpha)
+        return [color, paler, deeper]
     }
 
     /// An item node: its artwork if the asset exists, a labeled placeholder box

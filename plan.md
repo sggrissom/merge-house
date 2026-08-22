@@ -128,9 +128,15 @@ nothing has to know that a cake goes on tables.
 *Touches:* `RoomCatalog.swift`, `GameScene+Items.swift` (`settleItem`,
 `clampedItemPosition`), `GameScene+Room.swift`.
 
-### 5. Celebration when a chain tops out (S)
+### 5. Celebration when a chain tops out (S) — *built*
 
-Merging into a Crown or a Wedding Cake is currently indistinguishable from
+**Built:** `burstConfetti` in `GameScene+Items.swift`, the bigger swell on a
+top-out in `merge`, and the `top-out` fanfare behind the pop — which, like every
+other noise, is silence until somebody records one. Confetti is shapes in the
+item's own `placeholderColor` rather than an emitter file, so it needed no art
+and nothing new in the catalogs: `mergesInto == nil` is the whole trigger.
+
+Merging into a Crown or a Wedding Cake was previously indistinguishable from
 merging into a Fancy Bow. Since `ItemCatalog.chains` already knows the top of
 every chain, `mergesInto == nil` is a free trigger: a burst of confetti particles
 in the item's own `placeholderColor`, a fanfare, and the new item scaling up

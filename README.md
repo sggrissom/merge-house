@@ -80,6 +80,25 @@ game the day it is added, and no gameplay code has to know that a Cake is food.
 Still missing, and worth doing next: a carry point is a single fixed spot rather
 than a pose.
 
+## Finishing a chain
+
+Merging into a Crown used to look exactly like merging into a Fancy Bow. Now the
+top of a chain arrives bigger than it will end up, takes a moment longer to
+settle, and throws a handful of confetti.
+
+Nothing anywhere says which items are worth celebrating. `mergesInto == nil` is
+already the definition of the top of a chain, so a chain added to `ItemCatalog`
+tomorrow celebrates its own top the day it is added, and a chain that grows a new
+level stops celebrating the old top on its own.
+
+The paper is coloured from the merged item's own `placeholderColor`, plus a paler
+and a deeper neighbour of it — so a Tree finishes in green and a Wedding Cake in
+cream, and it reads as *that* thing being finished rather than as a generic well
+done. Like the reaction bubble, it is shapes rather than an emitter file, so
+there is no `.sks` to keep in step with the code and nothing here waits on any
+art. The fanfare behind it is the `top-out` sound, which is silence until
+somebody records one.
+
 ## Sound
 
 Wired end to end and completely silent, because there is not one audio file in

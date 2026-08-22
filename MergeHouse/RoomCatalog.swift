@@ -41,6 +41,15 @@ struct FurnitureDefinition {
     /// How a character uses this, if they can. `nil` is furniture you only ever
     /// walk past.
     let use: FurnitureUse?
+    /// Where this piece's top is, as a fraction of its own height — `0.9` for a
+    /// table, `0.05` for a rug, `1.0` for a stove. `nil` is a piece with no top:
+    /// anything let go over it falls past it to the floor.
+    ///
+    /// The furniture half of the same bargain `use` strikes. A Table says it has
+    /// a top and how high up itself that top is; how big the table is and where
+    /// it stands is the room's business, and *what* ends up on it is nobody's —
+    /// no code here knows that a cake goes on tables.
+    let surface: CGFloat?
     /// Placeholder fill, used only while `imageName` has no artwork behind it.
     let color: SKColor
 
@@ -65,41 +74,54 @@ enum FurnitureCatalog {
                             name: "Bed",
                             imageName: "bed",
                             use: FurnitureUse(pose: .lyingDown, label: "Sleeping"),
+                            // A blanket to put a teddy on.
+                            surface: 0.6,
                             color: SKColor(red: 0.55, green: 0.66, blue: 0.85, alpha: 1)),
         FurnitureDefinition(id: "chair",
                             name: "Chair",
                             imageName: "chair",
                             use: FurnitureUse(pose: .sitting, label: "Sitting"),
+                            // The seat, whether it is a person or a bear sitting on it.
+                            surface: 0.55,
                             color: SKColor(red: 0.55, green: 0.75, blue: 0.58, alpha: 1)),
         FurnitureDefinition(id: "table",
                             name: "Table",
                             imageName: "table",
                             use: nil,
+                            surface: 0.9,
                             color: SKColor(red: 0.62, green: 0.45, blue: 0.31, alpha: 1)),
         FurnitureDefinition(id: "sofa",
                             name: "Sofa",
                             imageName: "sofa",
                             use: FurnitureUse(pose: .sitting, label: "Lounging"),
+                            surface: 0.5,
                             color: SKColor(red: 0.72, green: 0.48, blue: 0.62, alpha: 1)),
         FurnitureDefinition(id: "rug",
                             name: "Rug",
                             imageName: "rug",
                             use: FurnitureUse(pose: .sitting, label: "Playing"),
+                            // Barely off the floor, which is the point of a rug.
+                            surface: 0.05,
                             color: SKColor(red: 0.84, green: 0.60, blue: 0.40, alpha: 1)),
         FurnitureDefinition(id: "counter",
                             name: "Counter",
                             imageName: "counter",
                             use: nil,
+                            surface: 0.95,
                             color: SKColor(red: 0.70, green: 0.68, blue: 0.60, alpha: 1)),
         FurnitureDefinition(id: "stove",
                             name: "Stove",
                             imageName: "stove",
                             use: nil,
+                            // The hob, right on top.
+                            surface: 1.0,
                             color: SKColor(red: 0.42, green: 0.44, blue: 0.50, alpha: 1)),
         FurnitureDefinition(id: "toy-box",
                             name: "Toy Box",
                             imageName: "toy-box",
                             use: nil,
+                            // The lid. Putting things *in* it is a later idea.
+                            surface: 1.0,
                             color: SKColor(red: 0.86, green: 0.56, blue: 0.30, alpha: 1)),
     ]
 
@@ -156,7 +178,16 @@ struct RoomDefinition {
     let wallColor: SKColor
     /// Placeholder floor fill, likewise.
     let floorColor: SKColor
-    /// How much of the room's height is floor rather than wall, in that placeholder.
+    /// Where the floor meets the wall, as a fraction of the room's height.
+    ///
+    /// It draws the placeholder's floor, and it is also the line things stand
+    /// on: an item let go above it falls to it, so a room reads as a room rather
+    /// than a scrapbook of things pinned to the wall. Below it is the front of
+    /// the room, where an item stays exactly where it was put — a picnic laid
+    /// out in the foreground is a thing a child should be allowed to do.
+    ///
+    /// A drawn room has to say where its own floor line is, since the backdrop
+    /// knows and nothing else does. It is the one number a `.png` cannot carry.
     let floorHeight: CGFloat
     /// What is in the room, back to front: a later piece draws over an earlier one.
     let furniture: [FurniturePlacement]

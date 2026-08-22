@@ -139,6 +139,21 @@ So a new piece of furniture works in every room that lists it, and a new room
 furnishes itself out of pieces that already know how they are used. A room with
 two chairs gets two seats, told apart as `chair` and `chair-2`.
 
+Things in a room stand on something, and that is the same split a third time. A
+room says how far up itself the floor meets the wall (`floorHeight`), and a piece
+of furniture says how far up *itself* its top is (`surface` — `0.9` for a table,
+`0.05` for a rug, `1.0` for a stove, `nil` for something you cannot put anything
+on). An item let go in the room falls to the highest of those underneath it, with
+a short drop and a squash on landing. Nothing anywhere knows that a cake goes on
+a table: the table knows it has a top, and the cake falls onto whatever it was
+let go above.
+
+Let go *below* the floor line, an item stays exactly where it is. That is the
+front of the room, nearer than the wall, and a picnic laid out in the foreground
+is a thing a child should be allowed to do. The rule is applied whenever an item
+is drawn as well as when it is dropped, so a rotation — which moves the floor and
+every table with it — leaves the cake on the table rather than beside it.
+
 There are two ways to move somebody. Tap the floor and they walk there, swaying
 as they go and taking longer the further it is; tap a chair or a bed and they
 walk over and get on it, which is otherwise the fiddliest drag in the game.
@@ -231,12 +246,15 @@ Both catalogs work the same way, and neither needs the artwork to exist first.
   stick figure is drawn in until then, and any `carryPoints` the defaults get
   wrong for them.
 - **A room** is one entry in `RoomCatalog.all`: a name, the `imageName` its
-  backdrop will use, the wall and floor colours it stands in until then, and the
-  furniture in it. Nothing else knows what a Kitchen is.
+  backdrop will use, the wall and floor colours it stands in until then, the
+  `floorHeight` its floor line sits at, and the furniture in it. Nothing else
+  knows what a Kitchen is. `floorHeight` is the one number a backdrop cannot
+  carry — a drawn room still has to say where its own floor begins.
 - **A piece of furniture** is one entry in `FurnitureCatalog.all`: a name, an
-  `imageName`, a colour for the box it draws as until that exists, and a
+  `imageName`, a colour for the box it draws as until that exists, a
   `FurnitureUse` — the pose it puts a character in and what they are said to be
-  doing — or `nil` for something you only walk past.
+  doing — or `nil` for something you only walk past, and a `surface`: how far up
+  its own height you can stand something on it, or `nil` for a piece with no top.
 
 Anything with no artwork yet draws as a placeholder and captions itself with the
 filename that would replace it — a room without a backdrop is its own two colours

@@ -262,6 +262,22 @@ extension GameScene {
         furniturePieces.first { $0.id == id }
     }
 
+    // MARK: - What things stand on
+
+    /// Where the floor meets the wall in this room, in scene coordinates. The
+    /// room says how far up itself that is; this is that against the rect the
+    /// room is actually being drawn at, so it survives a rotation the same way
+    /// every other fraction here does.
+    var roomFloorY: CGFloat {
+        roomRect.minY + roomRect.height * room.floorHeight
+    }
+
+    /// Where the top of one piece is, in scene coordinates, if it has one.
+    func surfaceY(for piece: FurniturePiece) -> CGFloat? {
+        guard let surface = piece.definition.surface else { return nil }
+        return piece.rect.minY + piece.rect.height * surface
+    }
+
     /// Where the character's origin (their feet) goes when they use a piece.
     func seatPosition(for piece: FurniturePiece) -> CGPoint {
         let rect = piece.rect

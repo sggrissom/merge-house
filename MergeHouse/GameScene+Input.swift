@@ -92,7 +92,8 @@ extension GameScene {
         var node = node
         // Taking something off is just picking it up: it leaves the character,
         // is redrawn at room size and carries on under the finger as a loose item.
-        if item.location.carryStyle != nil, let detached = putDown(id: item.id) {
+        if item.location.carryStyle != nil,
+           let detached = putDown(id: item.id, falling: false) {
             node = detached
         }
 

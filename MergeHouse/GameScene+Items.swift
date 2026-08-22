@@ -333,10 +333,15 @@ extension GameScene {
                             .scale(to: 1.0, duration: 0.08)]))
     }
 
-    /// Takes a carried item off and stands it on the floor of the room, where it
-    /// was. `offset` shifts it clear of whatever is replacing it.
+    /// Takes a carried item off and stands it on the floor of the room, below
+    /// where it was worn. `offset` shifts it clear of whatever is replacing it.
+    ///
+    /// `falling` is what makes it *stand* rather than hang in the air where the
+    /// head it was on happens to be. A hat taken off is dropped and lands; a hat
+    /// being picked up by a finger is not — it is coming with you, and pulling
+    /// it to the floor would tear it out from under the drag.
     @discardableResult
-    func putDown(id: Int, offset: CGPoint = .zero) -> SKNode? {
+    func putDown(id: Int, offset: CGPoint = .zero, falling: Bool = true) -> SKNode? {
         guard let index = itemIndex(id: id),
               items[index].location.carryStyle != nil,
               let node = itemNodes[id] else { return itemNodes[id] }
@@ -346,11 +351,19 @@ extension GameScene {
         itemNodes[id] = nil
 
         let size = itemSize(for: items[index].definition, in: .room)
-        let resting = clampedItemPosition(CGPoint(x: scenePoint.x + offset.x,
-                                                  y: scenePoint.y + offset.y),
-                                          size: size, in: .room)
+        let held = clampedItemPosition(CGPoint(x: scenePoint.x + offset.x,
+                                               y: scenePoint.y + offset.y),
+                                       size: size, in: .room)
+        let resting = falling ? settledPosition(held, size: size, in: .room) : held
         place(index, in: .room, anchor: itemAnchor(for: resting, in: .room))
         let fresh = addItemNode(for: items[index])
+        if falling {
+            dropItemNode(fresh, from: held, to: resting)
+        } else {
+            // Put back under the finger. A node is drawn where its item has
+            // settled, and this one is on its way somewhere rather than settled.
+            fresh.position = held
+        }
         refreshItemDepths()
         refreshStuffCount()
         setNeedsSave()
@@ -428,11 +441,12 @@ extension GameScene {
         }
 
         // Whichever area it was let go over is the one it now belongs to.
-        let dropLocation = location(forDropAt: node.position)
-        let resting = clampedItemPosition(node.position,
-                                          size: itemSize(for: items[index].definition,
-                                                         in: dropLocation),
-                                          in: dropLocation)
+        let released = node.position
+        let dropLocation = location(forDropAt: released)
+        let resting = settledPosition(released,
+                                      size: itemSize(for: items[index].definition,
+                                                     in: dropLocation),
+                                      in: dropLocation)
         let movedArea = items[index].location != dropLocation
         place(index, in: dropLocation, anchor: itemAnchor(for: resting, in: dropLocation))
         node.position = resting
@@ -450,8 +464,16 @@ extension GameScene {
               let result = ItemCatalog.mergeResult(for: dropped.definition) else {
             // Nothing happened to it but being let go, so that is the noise it
             // makes. Every other way out of this function has made its own.
-            playSound(.putDown, voice: dropped.definition.sound)
-            node.run(.scale(to: 1.0, duration: 0.08))
+            //
+            // Let go in mid-air it falls to whatever is under it first, and the
+            // thud waits for the landing rather than going off in mid-air.
+            let fall = dropItemNode(node, from: released, to: resting)
+            if fall == nil {
+                // Placed rather than dropped: it only has the pick-up scale to
+                // come out of, which a fall would have done for it.
+                node.run(.scale(to: 1.0, duration: 0.08))
+            }
+            playSound(.putDown, voice: dropped.definition.sound, after: fall ?? 0)
             return
         }
 
@@ -632,8 +654,12 @@ extension GameScene {
         let area = rect(for: item.location)
         let position = CGPoint(x: area.minX + item.anchor.x * area.width,
                                y: area.minY + item.anchor.y * area.height)
-        return clampedItemPosition(position, size: itemSize(for: item.definition, in: item.location),
-                                   in: item.location)
+        // Settled rather than merely clamped, so that a rotation — which moves
+        // the floor line and every piece of furniture with it — leaves a cake on
+        // the table rather than beside it, and so an older save's floating
+        // teddies come down the first time they are drawn.
+        return settledPosition(position, size: itemSize(for: item.definition, in: item.location),
+                               in: item.location)
     }
 
     func itemAnchor(for position: CGPoint, in location: ItemLocation) -> CGPoint {
@@ -669,6 +695,87 @@ extension GameScene {
         let maxY = area.maxY - margin - boxSize.height / 2
         return CGPoint(x: min(max(position.x, minX), max(minX, maxX)),
                        y: min(max(position.y, minY), max(minY, maxY)))
+    }
+
+    /// Where an item let go at `position` actually ends up: inside its area, and
+    /// — in the room — standing on something rather than hanging in mid-air.
+    ///
+    /// The one door every resting position goes through, so the shelf and the
+    /// room can be asked the same question and each answer for itself. The shelf
+    /// is a shelf and things lie on it wherever they are put; the room has a
+    /// floor and furniture with tops, and gravity is its business alone.
+    func settledPosition(_ position: CGPoint, size boxSize: CGSize,
+                         in location: ItemLocation) -> CGPoint {
+        let inside = clampedItemPosition(position, size: boxSize, in: location)
+        guard location == .room else { return inside }
+        return clampedItemPosition(restingPosition(inside, size: boxSize),
+                                   size: boxSize, in: .room)
+    }
+
+    /// Where an item let go in the room falls to.
+    ///
+    /// Everything in a room stands on something, and falling is straight down —
+    /// so what it lands on is the highest top underneath it. The floor line at
+    /// the back of the room is one such top, and the tops of the furniture it
+    /// was let go over are the others; the same rule twice, which is why there
+    /// is one loop rather than a floor case and a furniture case.
+    ///
+    /// Let go lower than all of them it stays exactly where it is. That is the
+    /// front of the room, in front of the floor line, and a child laying out a
+    /// picnic in the foreground should be allowed to.
+    func restingPosition(_ position: CGPoint, size boxSize: CGSize) -> CGPoint {
+        let bottom = position.y - boxSize.height / 2
+        // A hair of slack, so an item already standing on a top is not judged to
+        // be floating a fraction of a point above it and dropped again.
+        let reach = bottom + 0.5
+        var landing: CGFloat?
+
+        if roomFloorY <= reach {
+            landing = roomFloorY
+        }
+        for piece in furniturePieces {
+            guard let top = surfaceY(for: piece), top <= reach,
+                  piece.rect.minX <= position.x, position.x <= piece.rect.maxX else { continue }
+            // Frontmost wins a tie, since room order is draw order: a plate on
+            // a table pushed up against a counter of the same height lands on
+            // the one in front of it.
+            if let current = landing, top < current { continue }
+            landing = top
+        }
+
+        guard let top = landing else { return position }
+        return CGPoint(x: position.x, y: top + boxSize.height / 2)
+    }
+
+    /// The short fall an item makes when it is let go above the thing it comes
+    /// to rest on, and the squash it lands with. The node is already at rest —
+    /// this puts it back where the finger left it and drops it.
+    ///
+    /// Returns how long the fall takes, or `nil` if there was no fall — an item
+    /// let go on the floor was placed rather than dropped, and still has the
+    /// pick-up scale of its own to come out of.
+    @discardableResult
+    func dropItemNode(_ node: SKNode, from released: CGPoint,
+                      to resting: CGPoint) -> TimeInterval? {
+        let distance = released.y - resting.y
+        guard distance > 1, roomRect.height > 0 else { return nil }
+
+        node.removeAllActions()
+        node.position = released
+        // Long enough to read as a fall, short enough that a child dropping a
+        // teddy from the ceiling is not waiting for it.
+        let duration = min(0.34, 0.10 + TimeInterval(distance / roomRect.height) * 0.5)
+        let drop = SKAction.move(to: resting, duration: duration)
+        // Gathering speed on the way down rather than easing into the landing:
+        // the squash is the landing, and it only reads as one after an impact.
+        drop.timingMode = .easeIn
+
+        node.run(.sequence([
+            .group([drop, .scale(to: 1.0, duration: duration)]),
+            .group([.scaleX(to: 1.10, duration: 0.06), .scaleY(to: 0.90, duration: 0.06)]),
+            .group([.scaleX(to: 1.0, duration: 0.09), .scaleY(to: 1.0, duration: 0.09)]),
+        ]))
+        return duration
     }
 
     /// While a drag is in progress an item is free to move anywhere across the

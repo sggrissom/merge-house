@@ -447,17 +447,31 @@ extension GameScene {
                                       size: itemSize(for: items[index].definition,
                                                      in: dropLocation),
                                       in: dropLocation)
-        let movedArea = items[index].location != dropLocation
         place(index, in: dropLocation, anchor: itemAnchor(for: resting, in: dropLocation))
         node.position = resting
         refreshStuffCount()
 
-        // Carried between the shelf and the room, it is redrawn at that area's size.
-        if movedArea {
-            node.removeFromParent()
-            node = addItemNode(for: items[index])
-            refreshItemDepths()
-        }
+        // Redrawn rather than nudged, whatever it was dropped on. An item is
+        // drawn at the size of the area it is in, and a drag moves the model
+        // under the finger while the node it picked up stays the size the shelf
+        // made it — so by here the two disagree about how big this is whenever
+        // the drag crossed between the shelf and the room. Asking the model
+        // whether it moved cannot tell them apart, because the model moved
+        // during the drag; only redrawing it settles the question.
+        //
+        // What is on the shelf has changed too, so it may re-split — which
+        // rebuilds every node in turn. Both happen before the one to animate is
+        // looked up, rather than it being held onto across them, and the
+        // pick-up scale is carried over onto whatever comes out so the item
+        // still eases out of being held instead of snapping out of it.
+        let held = node.xScale
+        itemNodes[id]?.removeFromParent()
+        itemNodes[id] = nil
+        addItemNode(for: items[index])
+        refreshItemDepths()
+        refreshStuffDensity()
+        node = itemNodes[id] ?? node
+        node.setScale(held)
 
         let dropped = items[index]
         guard let target = mergeTarget(for: dropped),
@@ -489,8 +503,14 @@ extension GameScene {
 
         let resting = clampedItemPosition(meetingPoint, size: itemSize(for: result, in: .stuff),
                                           in: .stuff)
-        let node = addItem(definition: result, location: .stuff,
-                           anchor: itemAnchor(for: resting, in: .stuff))
+        addItem(definition: result, location: .stuff,
+                anchor: itemAnchor(for: resting, in: .stuff))
+        let id = nextItemID - 1
+        // Two items have become one, so the shelf may re-split — which rebuilds
+        // every node, so the one to pop is looked up after that rather than
+        // held onto across it.
+        refreshStuffDensity()
+        let node = itemNodes[id] ?? SKNode()
 
         // Pitched by how far up its chain the result is, so a Crown lands higher
         // than the Bow it came from off one recording.

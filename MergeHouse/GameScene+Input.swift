@@ -146,7 +146,10 @@ extension GameScene {
             // it is a thing they could actually take: a Cake carried past is
             // still worth turning your head for.
             leanCharacter(toward: node.position)
-            highlightMergeTarget(carry == nil ? mergeTarget(for: items[index])?.id : nil)
+            // Being taken by the character wins over being put together with
+            // something, so a bow held over a head does not also ring the bow
+            // lying beside them.
+            highlightCombineTarget(carry == nil ? combination(for: items[index])?.partner.id : nil)
             highlightTrash(isOverTrash(node.position))
         }
     }

@@ -370,36 +370,90 @@ extension GameScene {
         return fresh
     }
 
-    // MARK: - Merging
+    // MARK: - Merging and mixing
 
     static let itemHighlightName = "merge-highlight"
     static let itemStroke = SKColor(white: 0.15, alpha: 0.7)
     static let itemMergeStroke = SKColor(red: 1.0, green: 0.95, blue: 0.4, alpha: 1)
 
-    /// The item `dragged` would merge with if it were released now, if any.
+    /// What two items do when they are put together.
+    ///
+    /// The two are the same shape — a partner, a result, both of them gone and
+    /// the result in their place — and they differ only in what counts as a
+    /// partner and where each is allowed to happen. Keeping them one answer is
+    /// what makes the ring drawn under a finger and the thing that actually
+    /// happens on release the same question asked once rather than twice.
+    enum Combination {
+        /// A pair of the same thing, one level up the chain.
+        case merge(with: Item, into: ItemDefinition)
+        /// A pair of two different things that go together: a Cake and a Frosting.
+        case mix(with: Item, into: ItemDefinition)
+
+        var partner: Item {
+            switch self {
+            case .merge(let partner, _), .mix(let partner, _): return partner
+            }
+        }
+
+        var result: ItemDefinition {
+            switch self {
+            case .merge(_, let result), .mix(_, let result): return result
+            }
+        }
+    }
+
+    /// What would become of `dragged` if it were let go exactly where it is, if
+    /// anything.
+    ///
+    /// Merging is checked first: two of the same thing on the shelf are being
+    /// merged, whatever else either of them might also go with.
+    func combination(for dragged: Item) -> Combination? {
+        // Merging happens in the Stuff area. Things placed in the room are being
+        // played with, and should not disappear into a merge when pushed together.
+        if dragged.location == .stuff,
+           let result = ItemCatalog.mergeResult(for: dragged.definition),
+           let partner = overlappedItem(for: dragged, where: {
+               $0.definition.id == dragged.definition.id && $0.location == .stuff
+           }) {
+            return .merge(with: partner, into: result)
+        }
+
+        // Mixing is allowed in the room as well as on the shelf. Merging is not,
+        // for a good reason — things you arranged should not vanish into each
+        // other when pushed together — but mixing is deliberate enough that the
+        // reason does not carry: you have to have brought one specific other
+        // thing to it, and a child doing that on the kitchen table is the point.
+        // Not on the character, though: what they are wearing is not a worktop.
+        if dragged.location.carryStyle == nil,
+           let partner = overlappedItem(for: dragged, where: {
+               $0.location == dragged.location &&
+               ItemCatalog.mixResult(dragged.definition, $0.definition) != nil
+           }),
+           let result = ItemCatalog.mixResult(dragged.definition, partner.definition) {
+            return .mix(with: partner, into: result)
+        }
+
+        return nil
+    }
+
+    /// The item `dragged` covers most of, among those `isPartner` accepts.
     ///
     /// Like the furniture test, this compares overlapping *area* rather than a
     /// single point, so an item dropped anywhere across its partner counts.
-    func mergeTarget(for dragged: Item) -> Item? {
-        // Merging happens in the Stuff area. Things placed in the room are being
-        // played with, and should not disappear into a merge when pushed together.
-        guard dragged.location == .stuff,
-              ItemCatalog.mergeResult(for: dragged.definition) != nil,
-              let draggedFrame = itemFrame(for: dragged) else {
-            return nil
-        }
+    private func overlappedItem(for dragged: Item,
+                                where isPartner: (Item) -> Bool) -> Item? {
+        guard let draggedFrame = itemFrame(for: dragged) else { return nil }
         let draggedArea = draggedFrame.width * draggedFrame.height
         var best: (item: Item, overlap: CGFloat)?
 
-        for other in items where other.id != dragged.id &&
-            other.definition.id == dragged.definition.id && other.location == .stuff {
+        for other in items where other.id != dragged.id && isPartner(other) {
             guard let otherFrame = itemFrame(for: other) else { continue }
             let intersection = draggedFrame.intersection(otherFrame)
             guard !intersection.isNull else { continue }
 
             let overlap = intersection.width * intersection.height
             let otherArea = otherFrame.width * otherFrame.height
-            // A quarter of the smaller of the two, so brushing past does not merge.
+            // A quarter of the smaller of the two, so brushing past does not count.
             guard overlap >= min(draggedArea, otherArea) * 0.25 else { continue }
             if let current = best, overlap <= current.overlap { continue }
 
@@ -409,8 +463,8 @@ extension GameScene {
         return best?.item
     }
 
-    /// Outlines the item the dragged one would merge with.
-    func highlightMergeTarget(_ id: Int?) {
+    /// Outlines the item the dragged one would combine with.
+    func highlightCombineTarget(_ id: Int?) {
         for item in items {
             let highlight = itemNodes[item.id]?.childNode(withName: Self.itemHighlightName)
             highlight?.isHidden = item.id != id
@@ -420,7 +474,7 @@ extension GameScene {
     /// On release, merge the dragged item into whatever it was dropped on.
     /// Otherwise it simply stays where it was put.
     func settleItem(id: Int) {
-        highlightMergeTarget(nil)
+        highlightCombineTarget(nil)
         highlightTrash(false)
         highlightCharacter(false)
         guard let index = itemIndex(id: id), var node = itemNodes[id] else { return }
@@ -474,24 +528,28 @@ extension GameScene {
         node.setScale(held)
 
         let dropped = items[index]
-        guard let target = mergeTarget(for: dropped),
-              let result = ItemCatalog.mergeResult(for: dropped.definition) else {
-            // Nothing happened to it but being let go, so that is the noise it
-            // makes. Every other way out of this function has made its own.
-            //
-            // Let go in mid-air it falls to whatever is under it first, and the
-            // thud waits for the landing rather than going off in mid-air.
-            let fall = dropItemNode(node, from: released, to: resting)
-            if fall == nil {
-                // Placed rather than dropped: it only has the pick-up scale to
-                // come out of, which a fall would have done for it.
-                node.run(.scale(to: 1.0, duration: 0.08))
+        if let outcome = combination(for: dropped) {
+            switch outcome {
+            case .merge(let target, let result):
+                merge(dropped, target, into: result)
+            case .mix(let target, let result):
+                mix(dropped, target, into: result)
             }
-            playSound(.putDown, voice: dropped.definition.sound, after: fall ?? 0)
             return
         }
 
-        merge(dropped, target, into: result)
+        // Nothing happened to it but being let go, so that is the noise it
+        // makes. Every other way out of this function has made its own.
+        //
+        // Let go in mid-air it falls to whatever is under it first, and the
+        // thud waits for the landing rather than going off in mid-air.
+        let fall = dropItemNode(node, from: released, to: resting)
+        if fall == nil {
+            // Placed rather than dropped: it only has the pick-up scale to
+            // come out of, which a fall would have done for it.
+            node.run(.scale(to: 1.0, duration: 0.08))
+        }
+        playSound(.putDown, voice: dropped.definition.sound, after: fall ?? 0)
     }
 
     /// Both source items disappear and the next item up appears where the pair met.
@@ -541,6 +599,44 @@ extension GameScene {
             node.run(.sequence([.scale(to: 1.15, duration: 0.10),
                                 .scale(to: 1.0, duration: 0.08)]))
         }
+    }
+
+    /// Two things that are not the same thing at all become the one thing they
+    /// make together: a Cake and a Red Frosting leave a Red Cake behind them.
+    ///
+    /// Merging's sibling, and deliberately not merging. It happens wherever the
+    /// pair met — the shelf, or the middle of the room, which merging does not
+    /// allow — so the result is settled onto whatever is under it rather than
+    /// simply parked, and a cake frosted on the kitchen table stays on the table.
+    func mix(_ dragged: Item, _ target: Item, into result: ItemDefinition) {
+        // Where the pair met is where the thing they made is, and both halves of
+        // a pair are in the same place — the shelf or this room — by the time
+        // `combination` has agreed they go together.
+        let location = target.location
+        let meetingPoint = itemNodes[target.id]?.position ?? itemPosition(for: target)
+
+        removeItem(id: dragged.id)
+        removeItem(id: target.id)
+
+        let resting = settledPosition(meetingPoint, size: itemSize(for: result, in: location),
+                                      in: location)
+        let node = addItem(definition: result, location: location,
+                           anchor: itemAnchor(for: resting, in: location))
+
+        playSound(.mix, voice: result.sound)
+
+        // The same paper a finished chain gets, and for the same reason: there
+        // is something in the world now that was not in it a moment ago, and
+        // finding out that frosting goes on cake is as much of a discovery as
+        // reaching a Crown. Smaller and quicker than a top-out, so the last link
+        // of a chain still arrives as the grandest thing that happens.
+        node.setScale(0.5)
+        let swell = SKAction.scale(to: 1.35, duration: 0.16)
+        swell.timingMode = .easeOut
+        let settle = SKAction.scale(to: 1.0, duration: 0.24)
+        settle.timingMode = .easeInEaseOut
+        node.run(.sequence([swell, settle]))
+        burstConfetti(at: resting, color: result.placeholderColor)
     }
 
     // MARK: - Celebrating

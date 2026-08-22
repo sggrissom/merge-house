@@ -71,6 +71,16 @@ struct ItemDefinition {
     let imageName: String?
     /// The id of the item a pair of these becomes. `nil` tops out the chain.
     let mergesInto: String?
+    /// What this becomes when it is dropped on something *different*, keyed by
+    /// the other item's id.
+    ///
+    /// Merging is a pair of the same thing; mixing is a pair of two things that
+    /// go together, and it is how a Cake meets Frosting. Written once, on
+    /// whichever half of the pair it reads better on — a Frosting knows what it
+    /// does to a Cake, and a Cake has never heard of Frosting — because
+    /// `mixResult` asks both sides and so it works whichever one is carried to
+    /// the other. Empty is the normal answer: most things go with nothing.
+    let mixes: [String: String]
     /// Size relative to the base placeholder, so merge levels read at a glance.
     let scale: CGFloat
     /// Placeholder fill, used only while `imageName` has no artwork behind it.
@@ -115,6 +125,7 @@ enum ItemCatalog {
                        name: "Little Teddy",
                        imageName: "bear",
                        mergesInto: "teddy-big",
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.85, green: 0.66, blue: 0.42, alpha: 1),
                        carry: .hand,
@@ -124,6 +135,7 @@ enum ItemCatalog {
                        name: "Big Teddy",
                        imageName: "big-bear",
                        mergesInto: "teddy-giant",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.76, green: 0.48, blue: 0.26, alpha: 1),
                        carry: .hand,
@@ -133,6 +145,7 @@ enum ItemCatalog {
                        name: "Giant Teddy",
                        imageName: "big-bear",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.62, green: 0.34, blue: 0.16, alpha: 1),
                        carry: .hand,
@@ -143,6 +156,8 @@ enum ItemCatalog {
                        name: "Bow",
                        imageName: "bow",
                        mergesInto: "bow-fancy",
+                       // A bow is a thing you tie onto something, and a teddy is a something.
+                       mixes: ["teddy-small": "teddy-bow"],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.95, green: 0.62, blue: 0.76, alpha: 1),
                        carry: .head,
@@ -152,6 +167,7 @@ enum ItemCatalog {
                        name: "Fancy Bow",
                        imageName: "fancy-bow",
                        mergesInto: "tiara",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.85, green: 0.42, blue: 0.62, alpha: 1),
                        carry: .head,
@@ -161,6 +177,7 @@ enum ItemCatalog {
                        name: "Tiara",
                        imageName: "tiara",
                        mergesInto: "crown",
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.95, green: 0.82, blue: 0.35, alpha: 1),
                        carry: .head,
@@ -170,6 +187,7 @@ enum ItemCatalog {
                        name: "Crown",
                        imageName: "crown",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 2.0,
                        placeholderColor: SKColor(red: 0.2, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .head,
@@ -179,6 +197,7 @@ enum ItemCatalog {
                        name: "Cupcake",
                        imageName: "none",
                        mergesInto: "cake-block",
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1),
                        carry: .hand,
@@ -188,6 +207,7 @@ enum ItemCatalog {
                        name: "Cake",
                        imageName: "none",
                        mergesInto: "cake-giant-block",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1),
                        carry: .hand,
@@ -197,6 +217,7 @@ enum ItemCatalog {
                        name: "Giant Cake",
                        imageName: "none",
                        mergesInto: "wedding-cake-block",
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1),
                        carry: .hand,
@@ -206,6 +227,7 @@ enum ItemCatalog {
                        name: "Wedding Cake",
                        imageName: "none",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 2.0,
                        placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .hand,
@@ -215,6 +237,7 @@ enum ItemCatalog {
                        name: "Cupcake",
                        imageName: "cupcake",
                        mergesInto: "cake",
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.98, green: 0.85, blue: 0.62, alpha: 1),
                        carry: .hand,
@@ -224,6 +247,7 @@ enum ItemCatalog {
                        name: "Cake",
                        imageName: "cake",
                        mergesInto: "cake-giant",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.92, green: 0.66, blue: 0.45, alpha: 1),
                        carry: .hand,
@@ -233,6 +257,7 @@ enum ItemCatalog {
                        name: "Giant Cake",
                        imageName: "cake-giant",
                        mergesInto: "wedding-cake",
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.78, green: 0.45, blue: 0.36, alpha: 1),
                        carry: .hand,
@@ -242,6 +267,7 @@ enum ItemCatalog {
                        name: "Wedding Cake",
                        imageName: "cake-gianter",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 2.0,
                        placeholderColor: SKColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
                        carry: .hand,
@@ -252,6 +278,7 @@ enum ItemCatalog {
                        name: "Dress",
                        imageName: "dress",
                        mergesInto: "party-dress",
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.62, green: 0.78, blue: 0.94, alpha: 1),
                        carry: .body,
@@ -261,6 +288,7 @@ enum ItemCatalog {
                        name: "Party Dress",
                        imageName: "party-dress",
                        mergesInto: "ball-gown",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.48, green: 0.60, blue: 0.90, alpha: 1),
                        carry: .body,
@@ -270,6 +298,7 @@ enum ItemCatalog {
                        name: "Ball Gown",
                        imageName: "ball-gown",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.40, green: 0.36, blue: 0.78, alpha: 1),
                        carry: .body,
@@ -280,6 +309,8 @@ enum ItemCatalog {
                        name: "Leaf",
                        imageName: "leaf",
                        mergesInto: "sapling",
+                       // Nobody asked for this and it is the best one.
+                       mixes: ["cupcake": "cupcake-leafy"],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.58, green: 0.82, blue: 0.44, alpha: 1),
                        carry: .hand,
@@ -289,6 +320,7 @@ enum ItemCatalog {
                        name: "Sapling",
                        imageName: "sapling",
                        mergesInto: "tree",
+                       mixes: [:],
                        scale: 1.28,
                        placeholderColor: SKColor(red: 0.38, green: 0.68, blue: 0.36, alpha: 1),
                        carry: .hand,
@@ -298,6 +330,7 @@ enum ItemCatalog {
                        name: "Tree",
                        imageName: "tree",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 1.6,
                        placeholderColor: SKColor(red: 0.22, green: 0.50, blue: 0.28, alpha: 1),
                        carry: .hand,
@@ -311,6 +344,9 @@ enum ItemCatalog {
                        name: "Red Frosting",
                        imageName: "red-frosting",
                        mergesInto: nil,
+                       // Frosting is the thing being applied, so it is the half of the pair
+                       // that carries the recipe: a Cake has never heard of Frosting.
+                       mixes: ["cupcake": "cupcake-red", "cake": "cake-red"],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.88, green: 0.26, blue: 0.28, alpha: 1),
                        carry: .hand,
@@ -320,6 +356,9 @@ enum ItemCatalog {
                        name: "Blue Frosting",
                        imageName: "blue-frosting",
                        mergesInto: nil,
+                       // Frosting is the thing being applied, so it is the half of the pair
+                       // that carries the recipe: a Cake has never heard of Frosting.
+                       mixes: ["cupcake": "cupcake-blue", "cake": "cake-blue"],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.32, green: 0.48, blue: 0.88, alpha: 1),
                        carry: .hand,
@@ -329,6 +368,9 @@ enum ItemCatalog {
                        name: "Pink Frosting",
                        imageName: "pink-frosting",
                        mergesInto: nil,
+                       // Frosting is the thing being applied, so it is the half of the pair
+                       // that carries the recipe: a Cake has never heard of Frosting.
+                       mixes: ["cupcake": "cupcake-pink", "cake": "cake-pink"],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.96, green: 0.55, blue: 0.72, alpha: 1),
                        carry: .hand,
@@ -339,15 +381,103 @@ enum ItemCatalog {
                        name: "Headband",
                        imageName: "headband",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.92, green: 0.40, blue: 0.62, alpha: 1),
                        carry: .head,
                        reaction: .proud,
                        sound: "trinket"),
+        // Nothing is dealt these and nothing merges up to them: every one of
+        // them is the result of a mix, and the only way to a Red Cake is to have
+        // carried a Red Frosting to a Cake. They are ordinary catalog entries in
+        // every other way — a frosted Cupcake merges into a frosted Cake, and
+        // that Cake tops out its own little chain and throws its own confetti.
+        ItemDefinition(id: "cupcake-red",
+                       name: "Red Cupcake",
+                       imageName: "cupcake-red",
+                       mergesInto: "cake-red",
+                       mixes: [:],
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.93, green: 0.42, blue: 0.40, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "cake-red",
+                       name: "Red Cake",
+                       imageName: "cake-red",
+                       mergesInto: nil,
+                       mixes: [:],
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.88, green: 0.30, blue: 0.30, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "cupcake-blue",
+                       name: "Blue Cupcake",
+                       imageName: "cupcake-blue",
+                       mergesInto: "cake-blue",
+                       mixes: [:],
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.55, green: 0.66, blue: 0.93, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "cake-blue",
+                       name: "Blue Cake",
+                       imageName: "cake-blue",
+                       mergesInto: nil,
+                       mixes: [:],
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.40, green: 0.54, blue: 0.90, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "cupcake-pink",
+                       name: "Pink Cupcake",
+                       imageName: "cupcake-pink",
+                       mergesInto: "cake-pink",
+                       mixes: [:],
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.97, green: 0.68, blue: 0.80, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "cake-pink",
+                       name: "Pink Cake",
+                       imageName: "cake-pink",
+                       mergesInto: nil,
+                       mixes: [:],
+                       scale: 1.28,
+                       placeholderColor: SKColor(red: 0.95, green: 0.56, blue: 0.72, alpha: 1),
+                       carry: .hand,
+                       reaction: .yum,
+                       sound: "cake"),
+        ItemDefinition(id: "teddy-bow",
+                       name: "Teddy With A Bow",
+                       imageName: "teddy-bow",
+                       mergesInto: nil,
+                       mixes: [:],
+                       scale: 1.14,
+                       placeholderColor: SKColor(red: 0.90, green: 0.56, blue: 0.52, alpha: 1),
+                       carry: .hand,
+                       reaction: .love,
+                       sound: "teddy"),
+        ItemDefinition(id: "cupcake-leafy",
+                       name: "Leafy Cupcake",
+                       imageName: "cupcake-leafy",
+                       mergesInto: nil,
+                       mixes: [:],
+                       scale: 1.0,
+                       placeholderColor: SKColor(red: 0.74, green: 0.82, blue: 0.50, alpha: 1),
+                       carry: .hand,
+                       reaction: .silly,
+                       sound: "leaf"),
+
         ItemDefinition(id: "lona-misa",
                        name: "Lona Misa",
                        imageName: "lona-misa",
                        mergesInto: nil,
+                       mixes: [:],
                        scale: 1.0,
                        placeholderColor: SKColor(red: 0.72, green: 0.62, blue: 0.38, alpha: 1),
                        carry: .hand,
@@ -361,16 +491,28 @@ enum ItemCatalog {
     /// it needs to know where the range ends.
     static let maxScale: CGFloat = all.map { $0.scale }.max() ?? 1
 
-    /// The bottom of every chain: the items nothing else merges into. These are
-    /// what `Get Stuff` hands out, so a new chain becomes reachable simply by
-    /// being listed above.
-    static let starters: [ItemDefinition] = all.filter { candidate in
+    /// The bottom of every chain: the items nothing else merges into.
+    static let chainBottoms: [ItemDefinition] = all.filter { candidate in
         !all.contains { $0.mergesInto == candidate.id }
     }
 
+    /// Everything that only ever comes out of a mix. Read off the recipes rather
+    /// than listed, so an item stops being dealt out the moment somebody makes it
+    /// the result of one and starts again if they take that recipe away.
+    static let mixResults: Set<String> = Set(all.flatMap { $0.mixes.values })
+
+    /// What `Get Stuff` hands out: the bottom of every chain, except the ones
+    /// that only exist by being discovered. A new chain becomes reachable simply
+    /// by being listed above — but a Red Cake handed over by the shelf would be a
+    /// Red Cake nobody made, and finding out that frosting goes on cake is the
+    /// whole of what mixing is for.
+    static let starters: [ItemDefinition] = chainBottoms.filter { !mixResults.contains($0.id) }
+
     /// Every merge chain, bottom to top. Built by walking `mergesInto` from each
-    /// starter, so adding a chain to `all` is still the only step there is.
-    static let chains: [[ItemDefinition]] = starters.map { starter in
+    /// chain bottom, so adding a chain to `all` is still the only step there is —
+    /// and a chain that can only be discovered is still a chain, and still listed
+    /// in the Catalog, whether or not the shelf will ever deal out its first link.
+    static let chains: [[ItemDefinition]] = chainBottoms.map { starter in
         var chain = [starter]
         var seen: Set<String> = [starter.id]
         while let next = mergeResult(for: chain[chain.count - 1]), !seen.contains(next.id) {
@@ -420,6 +562,25 @@ enum ItemCatalog {
     static func mergeResult(for item: ItemDefinition) -> ItemDefinition? {
         guard let nextID = item.mergesInto else { return nil }
         return definition(id: nextID)
+    }
+
+    /// What these two become when they meet, if they go together at all.
+    ///
+    /// Asked of the *pair* rather than of one of them, because mixing is
+    /// symmetric: a Frosting carried to a Cake and a Cake carried to a Frosting
+    /// are the same thing happening. So a recipe is written once, on whichever
+    /// half of the pair it reads better on, and works whichever way round a
+    /// child does it. Both saying so is a slip while editing the list rather
+    /// than a state to have an opinion about — the item being carried wins,
+    /// which is the one whose own recipe was being followed.
+    ///
+    /// A pair of the same thing is a merge and never a mix, so an item that
+    /// somehow lists itself is refused here rather than turning one Cake into
+    /// two halves of something.
+    static func mixResult(_ item: ItemDefinition, _ other: ItemDefinition) -> ItemDefinition? {
+        guard item.id != other.id,
+              let resultID = item.mixes[other.id] ?? other.mixes[item.id] else { return nil }
+        return definition(id: resultID)
     }
 
     /// Two entries with the same id is a slip while editing the list, not a

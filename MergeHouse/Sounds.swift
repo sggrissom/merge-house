@@ -16,6 +16,7 @@ import SpriteKit
 /// | --- | --- |
 /// | `merge` | Two things merge. Pitched up by how far up its chain the result is. |
 /// | `top-out` | That merge finished a chain. A fanfare, after the pop. |
+/// | `mix` | Two *different* things that go together are put together. |
 /// | `pick-up` | Something is lifted off the shelf, the floor or the character. |
 /// | `put-down` | It is let go again. |
 /// | `wear` | It goes on the character instead. |
@@ -27,6 +28,7 @@ import SpriteKit
 enum SoundEvent: String, CaseIterable {
     case merge
     case topOut = "top-out"
+    case mix
     case pickUp = "pick-up"
     case putDown = "put-down"
     case wear
@@ -42,6 +44,7 @@ enum SoundEvent: String, CaseIterable {
         switch self {
         case .merge: return "a rising pop"
         case .topOut: return "a fanfare"
+        case .mix: return "a squelch and a sprinkle"
         case .pickUp: return "a soft tick"
         case .putDown: return "a thud"
         case .wear: return "a little sparkle"

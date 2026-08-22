@@ -24,6 +24,7 @@ game would have any of it:
 | **Merge All** | Merges every pair it can, repeatedly, until nothing else combines. The quick way to see the top of a chain. |
 | **Labels** | Toggles the name tag under each item. |
 | **Trash** | Drag one item onto it to bin that item; tap it to clear everything. |
+| **Sound** | Mutes the game, and says **Muted** while it is. The one button here a parent uses rather than a developer. |
 
 The shelf deals items into slots rather than scattering them, and splits itself
 into more rows as it fills, so `Get Stuff` never buries anything.
@@ -77,7 +78,49 @@ So a Teddy never learns what a Baby is, a new item is welcomed by everyone in th
 game the day it is added, and no gameplay code has to know that a Cake is food.
 
 Still missing, and worth doing next: a carry point is a single fixed spot rather
-than a pose, and there is no sound.
+than a pose.
+
+## Sound
+
+Wired end to end and completely silent, because there is not one audio file in
+the bundle yet. That is the same bargain the drawings strike — **a missing file
+is a normal state, not an error** — so every noise the game makes is already
+decided, already muteable, and already asking for a file by name.
+
+Nothing about it needs code once the files arrive. Drop a sound into the target
+the way a PNG goes in and it takes over, and until then that noise is silence.
+
+Which noise plays is the same two-halves split as carrying and reacting:
+
+- **The event says what is happening.** `SoundEvent` in `Sounds.swift` is the
+  whole list — a merge, a chain topping out, a pick-up, a put-down, something
+  worn, a door, a crumple — and each one names the file it wants: `merge.wav`,
+  `top-out.wav`, `pick-up.wav`, `put-down.wav`, `wear.wav`, `door.wav`,
+  `trash.wav`. Any format Core Audio reads will do.
+- **The item says what it is made of.** `sound: "teddy"` in `ItemCatalog` is one
+  word, not a filename, and it covers every noise a teddy can make: a teddy
+  merging looks for `teddy-merge` first and falls back to the shared `merge`.
+  So recording a soft thud for teddies and nothing else is a complete, sensible
+  thing to do — and `sound: nil` is a perfectly good answer too.
+
+The catalog currently gives out six voices — `teddy`, `trinket`, `cake`,
+`cloth`, `leaf` and `goo` — none of which has a file behind it. In a debug build
+the console names each file the first time something asks for it, which is the
+only way to see the wiring working while it is all still silent.
+
+Two details that are not just plumbing:
+
+- **A merge is pitched by how far up its chain it landed**, a minor third per
+  level, so one recording makes a Crown land higher than the Bow it came from
+  and a chain tops out with a fanfare behind the pop.
+- **The same noise twice in one instant is one noise.** Merge All merges up to
+  two hundred pairs in a single frame; two hundred pops at once is a bang, not a
+  cascade.
+
+**Mute is saved, and it is not saved with the game.** It lives in `UserDefaults`
+rather than in the save file, because a save holds the things the child made and
+a parent silencing the house at bedtime means the device, not the particular
+shelf of bows that happened to be open.
 
 ## Rooms
 
@@ -95,6 +138,28 @@ The split is the same one carrying uses, one step out:
 So a new piece of furniture works in every room that lists it, and a new room
 furnishes itself out of pieces that already know how they are used. A room with
 two chairs gets two seats, told apart as `chair` and `chair-2`.
+
+Things in a room stand on something, and that is the same split a third time. A
+room says how far up itself the floor meets the wall (`floorHeight`), and a piece
+of furniture says how far up *itself* its top is (`surface` — `0.9` for a table,
+`0.05` for a rug, `1.0` for a stove, `nil` for something you cannot put anything
+on). An item let go in the room falls to the highest of those underneath it, with
+a short drop and a squash on landing. Nothing anywhere knows that a cake goes on
+a table: the table knows it has a top, and the cake falls onto whatever it was
+let go above.
+
+Let go *below* the floor line, an item stays exactly where it is. That is the
+front of the room, nearer than the wall, and a picnic laid out in the foreground
+is a thing a child should be allowed to do. The rule is applied whenever an item
+is drawn as well as when it is dropped, so a rotation — which moves the floor and
+every table with it — leaves the cake on the table rather than beside it.
+
+There are two ways to move somebody. Tap the floor and they walk there, swaying
+as they go and taking longer the further it is; tap a chair or a bed and they
+walk over and get on it, which is otherwise the fiddliest drag in the game.
+Dragging is untouched and still wins: it is what you use to put somebody
+somewhere exact, and picking anybody or anything up cancels a walk in progress,
+leaving them wherever they had got to.
 
 What travels and what stays is worth being exact about, because it is the only
 thing about rooms a child will actually notice:
@@ -181,12 +246,15 @@ Both catalogs work the same way, and neither needs the artwork to exist first.
   stick figure is drawn in until then, and any `carryPoints` the defaults get
   wrong for them.
 - **A room** is one entry in `RoomCatalog.all`: a name, the `imageName` its
-  backdrop will use, the wall and floor colours it stands in until then, and the
-  furniture in it. Nothing else knows what a Kitchen is.
+  backdrop will use, the wall and floor colours it stands in until then, the
+  `floorHeight` its floor line sits at, and the furniture in it. Nothing else
+  knows what a Kitchen is. `floorHeight` is the one number a backdrop cannot
+  carry — a drawn room still has to say where its own floor begins.
 - **A piece of furniture** is one entry in `FurnitureCatalog.all`: a name, an
-  `imageName`, a colour for the box it draws as until that exists, and a
+  `imageName`, a colour for the box it draws as until that exists, a
   `FurnitureUse` — the pose it puts a character in and what they are said to be
-  doing — or `nil` for something you only walk past.
+  doing — or `nil` for something you only walk past, and a `surface`: how far up
+  its own height you can stand something on it, or `nil` for a piece with no top.
 
 Anything with no artwork yet draws as a placeholder and captions itself with the
 filename that would replace it — a room without a backdrop is its own two colours

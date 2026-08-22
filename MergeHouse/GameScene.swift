@@ -134,6 +134,12 @@ final class GameScene: SKScene {
     var dragSubject: DragSubject?
     var dragOffset: CGPoint = .zero
 
+    /// A touch that has not claimed anything and so might still turn out to be a
+    /// tap on the room — which is a walk. Held until the finger comes up,
+    /// because a finger that travels was pointing at nothing.
+    var tapTouch: UITouch?
+    var tapStart: CGPoint = .zero
+
     /// Save writes are coalesced by the frame update loop.
     var needsSave = false
     var lastSaveTime: TimeInterval = 0

@@ -13,6 +13,11 @@ extension GameScene {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        // A walk moves the drawing; this is what moves the character. Kept here
+        // rather than at the end of the walk so that stopping one halfway needs
+        // no unwinding.
+        trackWalk()
+
         guard needsSave, currentTime - lastSaveTime >= 1 else { return }
         lastSaveTime = currentTime
         flushSave()
